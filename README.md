@@ -120,6 +120,17 @@ bash scripts/06_test_e2e.sh
   ID_TOKEN=$(gcloud auth print-identity-token --audiences="${RUN_URL}")
   curl -i -H "Authorization: Bearer ${ID_TOKEN}" "${RUN_URL}/run?period=2025-10"
   ```
+- **Prueba directa de silver**
+```bash
+gcloud pubsub topics publish raw.done --message='{
+  "project_id":"tgs-sandbox",
+  "gcs_uri":"gs://tgs-sandbox-raw/indec/ipc/2025/10/sh_ipc_10_25.xls",
+  "archivo":"sh_ipc_10_25.xls",
+  "anio":2025,
+  "mes":10,
+  "source_url":"https://www.indec.gob.ar/ftp/cuadros/economia/sh_ipc_10_25.xls"
+}'
+```
 
 ## 📊 Monitoreo y Alertas (sugerencias)
 - Logs-based (CF/Run): alerta si `severity>=ERROR`.
