@@ -1,0 +1,93 @@
+Quiero que actúes como **arquitecto/a de datos y DevOps en GCP** y valides/mejores un workflow de ingesta y curado para el IPC del INDEC, con arquitectura **medallion**: **Raw en Cloud Storage**, **Silver en BigQuery**, **Gold en BigQuery**, y orquestación **event-driven** con **Pub/Sub** + **Cloud Scheduler con OIDC**.
+
+### 🎯 Objetivo
+Automatizar, mes a mes, la descarga de archivos de diferentes webs del INDEC. 
+GCP Cloud Scheduler manejará una planificación por cada archivo.
+Los parámetros que deberá pasar son: 
+  código de la descarga
+  url de descarga
+  nombre de carpeta de descarga en cloudstorage
+  nombre de procedure a ejecutar para gold 
+
+los arhivos se deben almacenar en RAW, transformar y cargar a:
+- **Silver**: `tgs-sandbox.tgs_sandbox_curated.indec_ipc` (particionada por `load_ts`, cluster por `(anio, mes)`).
+- **Gold**: `tgs-sandbox.ds_datos_tableros.lkp_indices_ajuste` mediante **MERGE en BigQuery** (ejecutado por Stored Procedure), **solo con lo nuevo del archivo recibido**.
+
+### 🧩 Componentes GCP (definidos)
+- **Proyecto**: `tgs-sandbox`
+- **Región**: `us-central1`
+- **Raw (GCS)**: `gs://tgs-sandbox-raw`
+- **Topics Pub/Sub**: `raw.done` (RAW→Silver) y `curated.done` (Silver→Gold)
+- **Dataset Silver (BQ)**: `tgs_sandbox_curated`
+- **Tabla Silver (BQ)**: `indec_ipc` (partition por `load_ts`, cluster `(anio, mes)`)
+- **Tabla Gold (BQ)**: `ds_datos_tableros.lkp_indices_ajuste`
+- **Stored Procedure (BQ)**: `ds_datos_tableros.sp_merge_lkp_indices_ajuste(p_archivo STRING)`
+- **Cloud Run**: `cr-indec-downloader` (privado; invocado vía OIDC por Scheduler) debe ser un solo cloud run. al finalizar publica un mensaje en `raw.done` con los datos necesarios para que continúe el pipe.
+- **Cloud Functions Gen2**:
+  - `cf-indec-ipc-silver` (trigger: `raw.done`) → lee csv desde GCS → parsea → inserta en Silver → publica `curated.done` con el nombre del procedure a ejecutar
+  - `cf-indec-ipim-silver` (trigger: `raw.done`) → lee csv desde GCS → parsea → inserta en Silver → publica `curated.done`
+  - `cf-indec-ipc-gold-trigger` (trigger: `curated.done`) → **CALL** al SP en BQ (MERGE en BigQuery, sin mover datos)
+- **Cloud Scheduler**: job mensual con **OIDC** usando la SA `sa-scheduler-indec@tgs-sandbox.iam.gserviceaccount.com`
+
+### 📥 Fuentes de datos
+1- Archivo mensual indice de precios al consumidor:  
+  código de la descarga: IPC
+  url de descarga: 'https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv' 
+  nombre de carpeta de descarga en cloudstorage: ipc
+  nombre de procedure a ejecutar para gold:  ds_datos_tableros.sp_merge_lkp_indices_ajuste
+
+2- Archivo mensual índice de precios mayoristas:  
+  código de la descarga: IPIM
+  url de descarga: 'https://www.indec.gob.ar/ftp/cuadros/economia/indice_ipim.csv'
+  nombre de carpeta de descarga en cloudstorage: ipim
+  nombre de procedure a ejecutar para gold:  ds_datos_tableros.sp_merge_lkp_indices_ajuste
+
+El **csv** de IPIM a procesar contiene 3 valores:
+periodo, nivel_general_aperturas, indice_ipim
+- de la primer columna debe extraer anio y mes
+- de la segunda columna debe filtrar específicamente los registros indicados como "ng_nivel_general" (este valor debe ponerse como variable de entorno)
+- el tercer campo corresponde al valor del indicador. 
+
+El **csv** de IPC a procesar contiene  valores:
+Codigo, Descripcion, Clasificador, Periodo, Indice_IPC, v_m_IPC, v_i_a_IPC, Region
+- Descripción debe ser "NIVEL GENERAL" (permitir este valor sea variable de entorno de la cloud funtion)
+- Region debe ser "Nacional" (este valor debe ponerse como variable de entorno)
+- del campo período deben obtenerse los valores anio y mes.
+- del campo Indice_IPC debe obtenerse el valor. 
+
+
+
+### 🔒 Reglas de negocio para Gold
+- Insertar/actualizar **solo** filas correspondientes al `archivo` recibido (no procesar todo el histórico).
+- `indices_id_indice` = debe coincidir con el valor código de la descarga configurado desde el cloud scheduler, y (anio, mes, valor) desde Silver.
+- MERGE idempotente por clave lógica `(indices_id_indice, anio, mes)`.
+
+### ✅ Lo que necesito de vos
+1) **Desarrollá el código faltante** (Cloud Run, CF Silver, CF Gold Trigger, DDL y SP de BQ) y proponé/mejorá:
+   - Tolerancias y **cortes** 
+   - Validaciones.
+   - Manejo de **tildes** y normalización del nombre de hoja.
+2) **Revisá IAM mínimo** y reintentos en Pub/Sub/CF; proponé DLQs y métricas.
+3) **Verificá** que el **Stored Procedure** Permita manejar múltiples archivos y el MERGE **solo de lo nuevo**.
+4) **Entregá**:
+   - Código actualizado.
+   - `gcloud` commands para despliegue end-to-end (us-central1).
+   - Instrucciones para **Cloud Scheduler con OIDC** (privado).
+   - **Plan de pruebas** con criterios de aceptación.
+   - Sugerencias de **alertas** en Cloud Monitoring (logs-based para Run/CF y jobs fallidos en BQ).
+
+### 🔬 Criterios de aceptación
+- Con los archivos adjuntos de muestra **archivo de prueba adjunto**, la CF Silver:
+  - Publica `curated.done` con `{archivo, gcs_uri, n_rows}` y todos los datos de configuración del archivo que se cargó (los parámetros del scheduler)
+- La CF Gold Trigger invoca **CALL** al SP y el MERGE:
+  - Inserta/actualiza **solo** las filas de **ese archivo** en `ds_datos_tableros.lkp_indices_ajuste`.
+- Pipeline **idempotente** (reprocesar el mismo archivo no duplica Gold).
+- **Alertas**: generar política de Monitoring para:
+  - Errores en `cf-indec-silver`, `cf-indec-gold-trigger`, y fallos en jobs de BigQuery.
+
+### 📎 Archivos adjuntos
+Te adjunto **todo lo necesario**: código fuente, SQLs y scripts de despliegue/operación.
+
+> Si detectás inconsistencias, proponé cambios y devolveme versiones corregidas listas para deploy.
+
+Gracias. 
