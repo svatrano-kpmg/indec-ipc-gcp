@@ -1,147 +1,195 @@
-# INDEC IPC — Data Workflow en GCP (Medallion Architecture)
+# Pipeline de Ingesta de Índices (INDEC) y Cálculo Tarifario en GCP
 
-**Objetivo:** Automatizar la ingesta mensual del archivo `sh_ipc_MM_YY.xls` del INDEC, almacenarlo en **RAW (GCS)**, parsearlo para construir duplas `(periodo; valor)` del **Nivel general**, y cargar los datos en:
-- **Silver (BigQuery):** `tgs-sandbox.tgs_sandbox_curated.indec_ipc`
-- **Gold (BigQuery):** `tgs-sandbox.ds_datos_tableros.lkp_indices_ajuste`, mediante **MERGE** ejecutado por **Stored Procedure**, **solo con lo nuevo** del archivo recibido.
+Este proyecto implementa un pipeline de datos serverless en Google Cloud para automatizar la ingesta, transformación y carga de múltiples índices económicos (IPC, IPIM) desde el INDEC.
 
-## 🔷 Arquitectura
+El pipeline sigue una arquitectura Medallion (Raw, Silver, Gold) y culmina con la orquestación de un proceso de cálculo de cuadro tarifario, todo disparado por eventos.
 
+## 🎯 Arquitectura del Pipeline
+
+El flujo es 100% event-driven y se compone de 5 microservicios principales:
+
+1.  **Scheduler (OIDC) → Cloud Run (Downloader)**
+    * `Cloud Scheduler` (con OIDC) invoca de forma segura a un `Cloud Run` privado.
+    * Existen *múltiples* jobs, uno por cada índice (IPC, IPIM), cada uno con su URL y configuración.
+    * El Cloud Run descarga el archivo, lo normaliza (ej. `latin-1` a `utf-8`) y lo guarda en GCS (Capa **Raw**).
+    * Al finalizar, publica un mensaje en `raw.done`.
+
+2.  **Pub/Sub (raw.done) → CF (Silver Transformer)**
+    * Un mensaje en `raw.done` (con atributos `codigo_descarga`, `gcs_uri`, etc.) dispara `cf-indec-silver-transformer`.
+    * Esta Cloud Function actúa como un *router*: lee el `codigo_descarga` y aplica la lógica de parsing (Pandas) específica para IPC o IPIM.
+    * Transforma los datos y los carga en la tabla **Silver** de BigQuery (`tgs_sandbox_curated.indec_ipc`).
+    * Detecta el mes/año (`max_anio`, `max_mes`) más reciente del lote y lo publica en `curated.done`.
+
+3.  **Pub/Sub (curated.done) → CF (Gold SP Trigger)**
+    * Un mensaje en `curated.done` dispara `cf-indec-gold-trigger`.
+    * Esta función lee los atributos (incluyendo `max_anio`, `max_mes`) y ejecuta el Stored Procedure de carga **Gold**.
+    * Invoca `CALL ds_datos_tableros.sp_merge_lkp_indices_ajuste(@codigo_descarga)`.
+    * Al finalizar, publica un mensaje en `gold.done` (pasando `anio` y `mes`).
+
+4.  **Pub/Sub (gold.done) → CF (Cuadro Tarifario)**
+    * Un mensaje en `gold.done` dispara `cf-indec-cuadro-tarifario`.
+    * Esta función *valida* si todos los datos necesarios para el `anio`/`mes` recibido existen en las tablas `lkp_*` (demanda, escalones, etc.).
+    * Si la validación es exitosa, ejecuta en orden los 3 SPs del cálculo tarifario (`sp_merge_ft_ajustes`, `sp_merge_ft_marcha_calculo`, `sp_merge_ft_cuadro_tarifario`).
+    * Al finalizar, publica un mensaje en `end.done`.
+
+5.  **Pub/Sub (end.done)**
+    * Topic final que notifica que el cuadro tarifario para un `anio`/`mes` específico está disponible.
+
+## 🎯 Arquitectura del Pipeline
+
+El flujo es 100% event-driven y se compone de 5 microservicios principales que interactúan a través de Pub/Sub.
+
+```mermaid
+graph TD
+    subgraph "1. Disparador (Scheduler)"
+        Sched_IPC[Scheduler Job (IPC)]
+        Sched_IPIM[Scheduler Job (IPIM)]
+    end
+
+    subgraph "2. Ingesta (RAW)"
+        CR_Downloader(<b>Cloud Run</b><br/>cr-indec-downloader)
+        GCS_Raw[<b>GCS (Raw)</b><br/>gs://...-raw]
+        PS_Raw(<b>Pub/Sub</b><br/>raw.done)
+        DLQ_Raw(<b>DLQ</b><br/>raw.done-dlq)
+    end
+
+    subgraph "3. Transformación (SILVER)"
+        CF_Silver(<b>Cloud Function</b><br/>cf-indec-silver-transformer)
+        BQ_Silver[<b>BigQuery (Silver)</b><br/>tgs_..._curated.indec_ipc]
+        PS_Curated(<b>Pub/Sub</b><br/>curated.done)
+        DLQ_Curated(<b>DLQ</b><br/>curated.done-dlq)
+    end
+    
+    subgraph "4. Carga (GOLD - Índices)"
+        CF_Gold(<b>Cloud Function</b><br/>cf-indec-gold-trigger)
+        SP_Merge_Indices[<b>Stored Procedure</b><br/>sp_merge_lkp_indices...]
+        BQ_Gold_Indices[<b>BigQuery (Gold)</b><br/>...lkp_indices_ajuste]
+        PS_Gold(<b>Pub/Sub</b><br/>gold.done)
+        DLQ_Gold(<b>DLQ</b><br/>gold.done-dlq)
+    end
+
+    subgraph "5. Orquestación (Cálculo Tarifario)"
+        CF_Cuadro(<b>Cloud Function</b><br/>cf-indec-cuadro-tarifario)
+        BQ_Validate[<b>Validación BQ</b><br/>(lkp_demanda, lkp_escalones...)]
+        SP_Calculo[<b>Stored Procedures (3)</b><br/>sp_merge_ft_ajustes<br/>sp_merge_ft_marcha...<br/>sp_merge_ft_cuadro...]
+        PS_End(<b>Pub/Sub</b><br/>end.done)
+    end
+
+    %% --- Flujo Principal ---
+    Sched_IPC -- OIDC Invoke --> CR_Downloader
+    Sched_IPIM -- OIDC Invoke --> CR_Downloader
+    
+    CR_Downloader -- 1. Guarda CSV --> GCS_Raw
+    CR_Downloader -- 2. Publica msg --> PS_Raw
+
+    PS_Raw -- Trigger --> CF_Silver
+    CF_Silver -- Lee CSV --> GCS_Raw
+    CF_Silver -- Carga Datos --> BQ_Silver
+    CF_Silver -- Publica msg<br/>(con max_anio/mes) --> PS_Curated
+
+    PS_Curated -- Trigger --> CF_Gold
+    CF_Gold -- Llama a SP<br/>(con codigo_descarga) --> SP_Merge_Indices
+    SP_Merge_Indices -- Lee --> BQ_Silver
+    SP_Merge_Indices -- MERGE --> BQ_Gold_Indices
+    CF_Gold -- Publica msg<br/>(con anio/mes) --> PS_Gold
+
+    PS_Gold -- Trigger --> CF_Cuadro
+    CF_Cuadro -- 1. Valida datos --> BQ_Validate
+    CF_Cuadro -- 2. Llama SPs --> SP_Calculo
+    CF_Cuadro -- 3. Publica msg --> PS_End
+
+    %% --- Flujo de Errores (DLQs) ---
+    CF_Silver -- on error --> DLQ_Raw
+    CF_Gold -- on error --> DLQ_Curated
+    CF_Cuadro -- on error --> DLQ_Gold
 ```
-Cloud Scheduler (OIDC, mensual)
-        │  HTTP (OIDC)
-        ▼
-Cloud Run: cr-indec-ipc-downloader (privado)
-  ├─ Descarga sh_ipc_MM_YY.xls (INDEC)
-  ├─ Guarda en GCS RAW: gs://tgs-sandbox-raw/indec/ipc/YYYY/MM/...
-  └─ Pub/Sub topic: raw.done {archivo, gcs_uri, ...}
-        │
-        ▼
-Cloud Functions Gen2: cf-indec-ipc-silver (trigger: raw.done)
-  ├─ Lee XLS desde GCS
-  ├─ Detecta hoja "Índices IPC Cobertura Nacional"
-  ├─ Autodetecta fila de periodos y "Nivel general"
-  ├─ Extrae (anio, mes, valor) con YY→2000+YY
-  ├─ Inserta en BQ Silver: tgs_sandbox_curated.indec_ipc
-  └─ Pub/Sub topic: curated.done {archivo, n_rows, ...}
-        │
-        ▼
-Cloud Functions Gen2: cf-indec-ipc-gold-trigger (trigger: curated.done)
-  └─ CALL BQ SP: ds_datos_tableros.sp_merge_lkp_indices_ajuste(archivo)
-         │
-         ▼
-BigQuery: MERGE → ds_datos_tableros.lkp_indices_ajuste
-  - ft_ajustes_cod_ajuste = NULL
-  - indices_id_indice = 1
-  - anio, mes, valor desde Silver (solo archivo recibido)
+
+## 🗂️ Estructura del Repositorio
 ```
+. 
+├── bq/ 
+│ ├── ddl_silver.sql # DDL Tabla Silver (unificada) 
+│ ├── ddl_gold_indices.sql # DDL Tabla Gold (lkp_indices_ajuste) 
+│ ├── ddl_gold_tarifario.sql # DDLs (demanda, escalones, gas_retenido) 
+│ ├── sp_merge_gold_indices.sql # SP (MERGE para lkp_indices_ajuste) 
+│ └── sp_cuadro_tarifario.sql # (Stubs) SPs para ft_ajustes, ft_marcha, etc. 
+├── cr-downloader/ # Cloud Run (Downloader) 
+│ ├── main.py 
+│ └── requirements.txt 
+├── cf-silver-transformer/ # CF (Raw -> Silver) 
+│ ├── main.py 
+│ └── requirements.txt 
+├── cf-gold-trigger/ # CF (Silver -> Gold) 
+│ ├── main.py 
+│ └── requirements.txt 
+├── cf-cuadro-tarifario/ # CF (Gold -> Cálculo Tarifario) 
+│ ├── main.py 
+│ └── requirements.txt 
+├── scripts/ 
+│ ├── _env.sh # Variables de entorno 
+│ ├── 00_bootstrap.sh # Crea SAs, Topics, DLQs 
+│ ├── 01_bq_init.sh # Ejecuta todos los SQL de /bq 
+│ ├── 02_deploy_cr_downloader.sh 
+│ ├── 03_deploy_cf_silver.sh 
+│ ├── 04_deploy_cf_gold.sh 
+│ ├── 05_deploy_cf_cuadro.sh 
+│ ├── 06_deploy_scheduler.sh # Crea los 2 jobs (IPC, IPIM) 
+│ └── 07_cleanup.sh # Limpia todos los recursos 
+└── README.md
+```
+## 🚀 Despliegue (End-to-End)
 
-## 📦 Componentes (IDs finales)
-- **Proyecto:** `tgs-sandbox`
-- **Región (Run/CF2/BQ):** `us-central1`
-- **RAW (GCS):** `gs://tgs-sandbox-raw`
-- **Topics (Pub/Sub):** `raw.done`, `curated.done`
-- **Silver (BQ):** dataset `tgs_sandbox_curated`, tabla `indec_ipc`
-- **Gold (BQ):** `ds_datos_tableros.lkp_indices_ajuste`
-- **Stored Procedure (BQ):** `ds_datos_tableros.sp_merge_lkp_indices_ajuste(p_archivo STRING)`
-- **Cloud Run:** `cr-indec-ipc-downloader` (privado, invocado por OIDC)
-- **CF Silver (Gen2):** `cf-indec-ipc-silver` (trigger: `raw.done`)
-- **CF Gold Trigger (Gen2):** `cf-indec-ipc-gold-trigger` (trigger: `curated.done`)
-- **Scheduler SA:** `sa-scheduler-indec@tgs-sandbox.iam.gserviceaccount.com`
-- **Scheduler job:** `indec-ipc-monthly` (loc: `us-central1`)
+El despliegue está 100% automatizado usando los scripts en el directorio `/scripts`.
 
-## 🗂️ Data Source
-**URL base:** `https://www.indec.gob.ar/ftp/cuadros/economia/sh_ipc_MM_YY.xls`  
-`MM`: mes (2 dígitos) · `YY`: últimos 2 dígitos (interpretados como `2000+YY`).
+**Proyecto:** `tgs-sandbox`
+**Región:** `us-central1`
 
-**Hoja objetivo:** contiene el texto **“Índices IPC Cobertura Nacional”**.  
-**Layout variable** (encabezados de período):
-- **Fecha Excel** (ctype=DATE) o **serial Excel** (NUMBER)
-- Texto `mmm-yy`, `mmm-yyyy`
-- Texto con **slashes** `dd/mm/yyyy`, `mm/yyyy` (suele ser `MM/01/YYYY`)
+### Pasos
 
-**Fila de valores:** la de **“Nivel general”** en la columna A.
+1.  **Configurar Variables:**
+    Revisar y ajustar el archivo `scripts/_env.sh` con los IDs de proyecto y nombres de recursos correctos.
 
-## 🧱 Modelo de datos
+2.  **Autenticación:**
+    ```bash
+    gcloud auth login
+    gcloud config set project tgs-sandbox
+    ```
 
-### Silver: `tgs_sandbox_curated.indec_ipc`
-- `periodo` STRING (normalizado `mmm-yy`, p.ej. `dic-16`)
-- `anio` INT64
-- `mes` INT64
-- `valor` FLOAT64
-- `archivo` STRING
-- `gcs_uri` STRING
-- `source_url` STRING
-- `load_ts` TIMESTAMP (DEFAULT CURRENT_TIMESTAMP)
+3.  **Ejecutar Scripts de Despliegue (en orden):**
+    ```bash
+    # 0. Habilitar APIs y crear SAs, Topics, DLQs
+    ./scripts/00_bootstrap.sh
 
-**Particionamiento:** `DATE(load_ts)`  
-**Clustering:** `(anio, mes)`
+    # 1. Crear Datasets, Tablas y Stored Procedures en BigQuery
+    ./scripts/01_bq_init.sh
 
-### Gold: `ds_datos_tableros.lkp_indices_ajuste`
-- `ft_ajustes_cod_ajuste` INT64 ← **NULL**
-- `indices_id_indice` INT64 ← **1**
-- `anio` INT64
-- `mes` INT64
-- `valor` FLOAT64
+    # 2. Desplegar el Cloud Run (Downloader)
+    ./scripts/02_deploy_cr_downloader.sh
 
-**MERGE** idempotente por `(indices_id_indice, anio, mes)`  
-**Alcance:** **solo** filas de Silver con `archivo = p_archivo`.
+    # 3. Desplegar CF Silver (con trigger raw.done)
+    ./scripts/03_deploy_cf_silver.sh
 
-## 🔐 IAM mínimo
-- **Cloud Run SA:** `roles/storage.objectAdmin`, `roles/pubsub.publisher`, `roles/logging.logWriter`
-- **CF Silver SA:** `roles/storage.objectViewer` (RAW), `roles/bigquery.dataEditor` (Silver), `roles/bigquery.jobUser`, `roles/pubsub.publisher` (curated.done), `roles/logging.logWriter`
-- **CF Gold Trigger SA:** `roles/bigquery.jobUser`, `roles/bigquery.dataEditor` (en `ds_datos_tableros`), `roles/logging.logWriter`
-- **Scheduler SA:** `roles/run.invoker` **sobre el servicio de Run**.
+    # 4. Desplegar CF Gold (con trigger curated.done)
+    ./scripts/04_deploy_cf_gold.sh
 
-> **Cloud Run privado** (no `allUsers`); Scheduler invoca con **OIDC**.
+    # 5. Desplegar CF Cuadro Tarifario (con trigger gold.done)
+    ./scripts/05_deploy_cf_cuadro.sh
 
-## 🚀 Despliegue — orden sugerido
+    # 6. Crear los Cloud Scheduler Jobs (IPC y IPIM)
+    ./scripts/06_deploy_scheduler.sh
+    ```
+
+4.  **Probar el Pipeline:**
+    Se puede forzar la ejecución de los jobs desde la consola de Cloud Scheduler.
+    ```bash
+    gcloud scheduler jobs run job-indec-ipc
+    gcloud scheduler jobs run job-indec-ipim
+    ```
+
+### 🧹 Limpieza
+
+Para eliminar todos los recursos creados por este despliegue, ejecuta:
 
 ```bash
-chmod +x scripts/*.sh
-
-bash scripts/00_bootstrap.sh
-bash scripts/01_bq_init.sh
-bash scripts/02_deploy_run.sh
-bash scripts/03_deploy_cf_silver.sh
-bash scripts/04_deploy_cf_gold_trigger.sh
-bash scripts/05_scheduler_oidc.sh
-bash scripts/06_test_e2e.sh
+./scripts/07_cleanup.sh
 ```
-
-## 🧪 Pruebas rápidas
-
-- **Forzar Scheduler**:
-  ```bash
-  gcloud scheduler jobs run indec-ipc-monthly --location=us-central1
-  ```
-- **Llamada directa (privado con OIDC)**:
-  ```bash
-  RUN_URL=$(gcloud run services describe cr-indec-ipc-downloader --region us-central1 --format='value(status.url)')
-  ID_TOKEN=$(gcloud auth print-identity-token --audiences="${RUN_URL}")
-  curl -i -H "Authorization: Bearer ${ID_TOKEN}" "${RUN_URL}/run?period=2025-10"
-  ```
-- **Prueba directa de silver**
-```bash
-gcloud pubsub topics publish raw.done --message='{
-  "project_id":"tgs-sandbox",
-  "gcs_uri":"gs://tgs-sandbox-raw/indec/ipc/2025/10/sh_ipc_10_25.xls",
-  "archivo":"sh_ipc_10_25.xls",
-  "anio":2025,
-  "mes":10,
-  "source_url":"https://www.indec.gob.ar/ftp/cuadros/economia/sh_ipc_10_25.xls"
-}'
-```
-
-## 📊 Monitoreo y Alertas (sugerencias)
-- Logs-based (CF/Run): alerta si `severity>=ERROR`.
-- BigQuery jobs: alerta si `errorResult` en job.
-- Scheduler: alerta por intentos `FAILED`.
-
-## 🧯 Troubleshooting
-- **403 Run**: faltan permisos `roles/run.invoker` a la SA del Scheduler o falta token OIDC.
-- **0 filas en Silver**: layout cambió. Revisar logs:
-  - `[Detect] header_row=..., value_row=..., start_col=...`
-  - `[Diagnóstico] Encabezados ejemplo ...`
-- **`.xls`**: asegurar `xlrd==1.2.0`.
-
----

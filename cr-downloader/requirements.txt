@@ -1,0 +1,4 @@
+functions-framework==3.*
+requests==2.*
+gcsfs==2024.6.0
+google-cloud-pubsub==2.*

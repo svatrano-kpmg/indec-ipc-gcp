@@ -1,15 +1,18 @@
-#!/usr/bin/env bash
+#!/binbin/bash
+source scripts/_env.sh
 set -euo pipefail
-source "$(dirname "$0")/_env.sh"
 
-echo ">> Deploy CF Silver (Gen2)..."
-gcloud functions deploy "${CF_SILVER}" \
-  --gen2 \
-  --region "${REGION}" \
-  --runtime python311 \
-  --entry-point pubsub_handler \
-  --trigger-topic "${TOPIC_RAW}" \
-  --set-env-vars PROJECT_ID="${PROJECT}",SILVER_DATASET="${SILVER_DATASET}",SILVER_TABLE="${SILVER_TABLE}",TOPIC_CURATED_DONE="${TOPIC_CURATED}" \
-  --source ./cf-silver
+echo "--- Desplegando CF Silver: ${CF_SILVER} ---"
+gcloud run deploy ${CF_SILVER} \
+  --source=cf-silver-transformer/ \
+  --platform=managed \
+  --region=${REGION} \
+  --no-allow-unauthenticated \
+  --entry-point=process_raw_to_silver \
+  --service-account=${SA_COMPUTE} \
+  --set-env-vars="PROJECT_ID=${PROJECT_ID},BQ_DATASET=${BQ_DS_SILVER},BQ_TABLE=${BQ_TBL_SILVER},PUB SUB_TOPIC_OUT=${TOPIC_CURATED},FILTER_IPC_DESC=NIVEL GENERAL,FILTER_IPC_REGION=Nacional,FILTER_IPIM_APERTURA=ng_nivel_general" \
+  --trigger-topic=${TOPIC_RAW} \
+  --trigger-retry \
+  --trigger-dead-letter-topic=${DLQ_RAW}
 
-echo ">> CF Silver OK."
+echo "--- Despliegue de CF Silver completado ---"

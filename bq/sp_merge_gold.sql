@@ -5,7 +5,7 @@ BEGIN
     SELECT
       1 AS indices_id_indice,
       anio,
-      mes,
+      mes,sp_merge_gold_indices.sql
       valor
     FROM `tgs-sandbox.tgs_sandbox_curated.indec_ipc`
     WHERE archivo = p_archivo

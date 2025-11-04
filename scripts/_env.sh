@@ -1,28 +1,33 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-export PROJECT="tgs-sandbox"
+#!/bin/bash
+export PROJECT_ID="tgs-sandbox"
 export REGION="us-central1"
 
-export RAW_BUCKET="tgs-sandbox-raw"
+# SAs (Mantenemos la SA del Scheduler)
+export SA_SCHEDULER="sa-scheduler-indec@${PROJECT_ID}.iam.gserviceaccount.com"
+# Usaremos la SA de Compute por defecto para los servicios, por simplicidad
+export SA_COMPUTE="${PROJECT_ID}@compute-system.iam.gserviceaccount.com" 
 
+# GCS
+export GCS_RAW_BUCKET="${PROJECT_ID}-raw"
+
+# Pub/Sub Topics
 export TOPIC_RAW="raw.done"
 export TOPIC_CURATED="curated.done"
+export TOPIC_GOLD="gold.done"
+export TOPIC_END="end.done"
 
-export SILVER_DATASET="tgs_sandbox_curated"
-export SILVER_TABLE="indec_ipc"
+# Pub/Sub DLQs
+export DLQ_RAW="${TOPIC_RAW}-dlq"
+export DLQ_CURATED="${TOPIC_CURATED}-dlq"
+export DLQ_GOLD="${TOPIC_GOLD}-dlq"
 
-export GOLD_DATASET="ds_datos_tableros"
-export GOLD_TABLE="lkp_indices_ajuste"
-export SP_FQN="${PROJECT}.${GOLD_DATASET}.sp_merge_lkp_indices_ajuste"
+# BigQuery
+export BQ_DS_SILVER="tgs_sandbox_curated"
+export BQ_TBL_SILVER="indec_ipc"
+export BQ_DS_GOLD="ds_datos_tableros"
 
-export RUN_SERVICE="cr-indec-ipc-downloader"
-export RUN_IMAGE="gcr.io/${PROJECT}/${RUN_SERVICE}:latest"
-
-export CF_SILVER="cf-indec-ipc-silver"
-export CF_GOLD_TRIGGER="cf-indec-ipc-gold-trigger"
-
-export SCHEDULER_SA="sa-scheduler-indec"
-export SCHEDULER_JOB="indec-ipc-monthly"
-export SCHEDULER_LOCATION="us-central1"
-export TIME_ZONE="America/Argentina/Buenos_Aires"
+# Cloud Run / Functions (Nuevos nombres)
+export CR_DOWNLOADER="cr-indec-downloader"
+export CF_SILVER="cf-indec-silver-transformer"
+export CF_GOLD="cf-indec-gold-trigger"
+export CF_CUADRO="cf-indec-cuadro-tarifario"
