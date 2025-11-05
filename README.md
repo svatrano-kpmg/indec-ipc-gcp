@@ -39,69 +39,59 @@ El flujo es 100% event-driven y se compone de 5 microservicios principales:
 
 El flujo es 100% event-driven y se compone de 5 microservicios principales que interactúan a través de Pub/Sub.
 
-```mermaid
-graph TD
-    subgraph "1. Disparador (Scheduler)"
-        Sched_IPC[Scheduler Job (IPC)]
-        Sched_IPIM[Scheduler Job (IPIM)]
-    end
-
-    subgraph "2. Ingesta (RAW)"
-        CR_Downloader(<b>Cloud Run</b><br/>cr-indec-downloader)
-        GCS_Raw[<b>GCS (Raw)</b><br/>gs://...-raw]
-        PS_Raw(<b>Pub/Sub</b><br/>raw.done)
-        DLQ_Raw(<b>DLQ</b><br/>raw.done-dlq)
-    end
-
-    subgraph "3. Transformación (SILVER)"
-        CF_Silver(<b>Cloud Function</b><br/>cf-indec-silver-transformer)
-        BQ_Silver[<b>BigQuery (Silver)</b><br/>tgs_..._curated.indec_ipc]
-        PS_Curated(<b>Pub/Sub</b><br/>curated.done)
-        DLQ_Curated(<b>DLQ</b><br/>curated.done-dlq)
-    end
-    
-    subgraph "4. Carga (GOLD - Índices)"
-        CF_Gold(<b>Cloud Function</b><br/>cf-indec-gold-trigger)
-        SP_Merge_Indices[<b>Stored Procedure</b><br/>sp_merge_lkp_indices...]
-        BQ_Gold_Indices[<b>BigQuery (Gold)</b><br/>...lkp_indices_ajuste]
-        PS_Gold(<b>Pub/Sub</b><br/>gold.done)
-        DLQ_Gold(<b>DLQ</b><br/>gold.done-dlq)
-    end
-
-    subgraph "5. Orquestación (Cálculo Tarifario)"
-        CF_Cuadro(<b>Cloud Function</b><br/>cf-indec-cuadro-tarifario)
-        BQ_Validate[<b>Validación BQ</b><br/>(lkp_demanda, lkp_escalones...)]
-        SP_Calculo[<b>Stored Procedures (3)</b><br/>sp_merge_ft_ajustes<br/>sp_merge_ft_marcha...<br/>sp_merge_ft_cuadro...]
-        PS_End(<b>Pub/Sub</b><br/>end.done)
-    end
-
-    %% --- Flujo Principal ---
-    Sched_IPC -- OIDC Invoke --> CR_Downloader
-    Sched_IPIM -- OIDC Invoke --> CR_Downloader
-    
-    CR_Downloader -- 1. Guarda CSV --> GCS_Raw
-    CR_Downloader -- 2. Publica msg --> PS_Raw
-
-    PS_Raw -- Trigger --> CF_Silver
-    CF_Silver -- Lee CSV --> GCS_Raw
-    CF_Silver -- Carga Datos --> BQ_Silver
-    CF_Silver -- Publica msg<br/>(con max_anio/mes) --> PS_Curated
-
-    PS_Curated -- Trigger --> CF_Gold
-    CF_Gold -- Llama a SP<br/>(con codigo_descarga) --> SP_Merge_Indices
-    SP_Merge_Indices -- Lee --> BQ_Silver
-    SP_Merge_Indices -- MERGE --> BQ_Gold_Indices
-    CF_Gold -- Publica msg<br/>(con anio/mes) --> PS_Gold
-
-    PS_Gold -- Trigger --> CF_Cuadro
-    CF_Cuadro -- 1. Valida datos --> BQ_Validate
-    CF_Cuadro -- 2. Llama SPs --> SP_Calculo
-    CF_Cuadro -- 3. Publica msg --> PS_End
-
-    %% --- Flujo de Errores (DLQs) ---
-    CF_Silver -- on error --> DLQ_Raw
-    CF_Gold -- on error --> DLQ_Curated
-    CF_Cuadro -- on error --> DLQ_Gold
+```
+Cloud Scheduler (OIDC, mensual)
+  ┌─ Job: "job-indec-ipc"
+  └─ Job: "job-indec-ipim"
+           │
+           │ HTTP (OIDC) con payload JSON (código, url, carpeta, sp_name)
+           ▼
+  Cloud Run: cr-indec-downloader (privado)
+      ├─ Recibe JSON (ej: "IPC" o "IPIM")
+      ├─ Descarga CSV (maneja encoding latin-1 → utf-8)
+      ├─ Guarda en GCS RAW: gs://tgs-sandbox-raw/[carpeta]/... (ej: /ipc/ o /ipim/)
+      └─ Pub/Sub topic: raw.done {codigo_descarga, gcs_uri, nombre_procedure_gold}
+           │
+           ▼ (Trigger Eventarc)
+  Cloud Function: cf-indec-silver-transformer (trigger: raw.done)
+      ├─ Lee atributos (ej: "IPC")
+      ├─ **Router Lógico**:
+      │   ├─ Si "IPC": Parsea CSV de IPC (Filtra "NIVEL GENERAL", "Nacional")
+      │   └─ Si "IPIM": Parsea CSV de IPIM (Filtra "ng_nivel_general")
+      ├─ Extrae (anio, mes, valor)
+      ├─ Busca (max_anio, max_mes) del lote
+      ├─ Inserta en BQ Silver (Unificado): tgs_sandbox_curated.indec_ipc
+      └─ Pub/Sub topic: curated.done {codigo_descarga, nombre_procedure_gold, max_anio, max_mes}
+           │
+           ▼ (Trigger Eventarc)
+  Cloud Function: cf-indec-gold-trigger (trigger: curated.done)
+      ├─ Lee atributos (ej: "IPC", "2024", "10")
+      └─ CALL BQ SP: ds_datos_tableros.sp_merge_lkp_indices_ajuste(codigo_descarga)
+           │
+           ▼
+  BigQuery: MERGE → ds_datos_tableros.lkp_indices_ajuste
+      ├─ Fuente: tgs_sandbox_curated.indec_ipc (filtrada por `archivo = codigo_descarga`)
+      ├─ Clave Lógica: (indices_id_indice, anio, mes)
+      └─ Resultado: indices_id_indice = "IPC" o "IPIM" (desde el SP)
+           │
+           └─ (Al éxito) CF Gold publica en Pub/Sub topic: gold.done {codigo_descarga, anio, mes}
+                │
+                ▼ (Trigger Eventarc)
+  Cloud Function: cf-indec-cuadro-tarifario (trigger: gold.done)
+      ├─ Lee atributos (ej: "IPC", "2024", "10")
+      ├─ **1. Validación (SELECT EXISTS)**:
+      │   ├─ lkp_indices_ajuste (para anio/mes/codigo)
+      │   ├─ lkp_demanda (para anio/mes)
+      │   ├─ lkp_escalones (para anio/mes)
+      │   └─ lkp_gas_retenido (para anio/mes)
+      │
+      ├─ **2. Ejecución (Solo si 1. es OK)**:
+      │   ├─ CALL ds_datos_tableros.sp_merge_ft_ajustes()
+      │   ├─ CALL ds_datos_tableros.sp_merge_ft_marcha_calculo()
+      │   └─ CALL ds_datos_tableros.sp_merge_ft_cuadro_tarifario()
+      │
+      └─ **3. Notificación Final**:
+           └─ Pub/Sub topic: end.done {anio, mes}
 ```
 
 ## 🗂️ Estructura del Repositorio
