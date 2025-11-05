@@ -38,25 +38,24 @@ El flujo es 100% event-driven y se compone de 5 microservicios principales:
 ## 🎯 Arquitectura del Pipeline
 
 El flujo es 100% event-driven y se compone de 5 microservicios principales que interactúan a través de Pub/Sub.
-
 ```mermaid
 graph TD
     subgraph "1. Disparador (Scheduler)"
-        Sched_IPC[Scheduler Job (IPC)]
-        Sched_IPIM[Scheduler Job (IPIM)]
+        Job_IPC[Scheduler Job (IPC)]
+        Job_IPIM[Scheduler Job (IPIM)]
     end
 
     subgraph "2. Ingesta (RAW)"
         CR_Downloader(<b>Cloud Run</b><br/>cr-indec-downloader)
         GCS_Raw[<b>GCS (Raw)</b><br/>gs://...-raw]
-        PS_Raw(<b>Pub/Sub</b><br/>raw.done)
+        Topic_Raw(<b>Pub/Sub</b><br/>raw.done)
         DLQ_Raw(<b>DLQ</b><br/>raw.done-dlq)
     end
 
     subgraph "3. Transformación (SILVER)"
         CF_Silver(<b>Cloud Function</b><br/>cf-indec-silver-transformer)
         BQ_Silver[<b>BigQuery (Silver)</b><br/>tgs_..._curated.indec_ipc]
-        PS_Curated(<b>Pub/Sub</b><br/>curated.done)
+        Topic_Curated(<b>Pub/Sub</b><br/>curated.done)
         DLQ_Curated(<b>DLQ</b><br/>curated.done-dlq)
     end
     
@@ -64,7 +63,7 @@ graph TD
         CF_Gold(<b>Cloud Function</b><br/>cf-indec-gold-trigger)
         SP_Merge_Indices[<b>Stored Procedure</b><br/>sp_merge_lkp_indices...]
         BQ_Gold_Indices[<b>BigQuery (Gold)</b><br/>...lkp_indices_ajuste]
-        PS_Gold(<b>Pub/Sub</b><br/>gold.done)
+        Topic_Gold(<b>Pub/Sub</b><br/>gold.done)
         DLQ_Gold(<b>DLQ</b><br/>gold.done-dlq)
     end
 
@@ -72,37 +71,37 @@ graph TD
         CF_Cuadro(<b>Cloud Function</b><br/>cf-indec-cuadro-tarifario)
         BQ_Validate[<b>Validación BQ</b><br/>(lkp_demanda, lkp_escalones...)]
         SP_Calculo[<b>Stored Procedures (3)</b><br/>sp_merge_ft_ajustes<br/>sp_merge_ft_marcha...<br/>sp_merge_ft_cuadro...]
-        PS_End(<b>Pub/Sub</b><br/>end.done)
+        Topic_End(<b>Pub/Sub</b><br/>end.done)
     end
 
     %% --- Flujo Principal ---
-    Sched_IPC -- OIDC Invoke --> CR_Downloader
-    Sched_IPIM -- OIDC Invoke --> CR_Downloader
+    Job_IPC -- OIDC Invoke --> CR_Downloader
+    Job_IPIM -- OIDC Invoke --> CR_Downloader
     
     CR_Downloader -- 1. Guarda CSV --> GCS_Raw
-    CR_Downloader -- 2. Publica msg --> PS_Raw
+    CR_Downloader -- 2. Publica msg --> Topic_Raw
 
-    PS_Raw -- Trigger --> CF_Silver
+    Topic_Raw -- Trigger --> CF_Silver
     CF_Silver -- Lee CSV --> GCS_Raw
     CF_Silver -- Carga Datos --> BQ_Silver
-    CF_Silver -- Publica msg<br/>(con max_anio/mes) --> PS_Curated
+    CF_Silver -- Publica msg<br/>(con max_anio/mes) --> Topic_Curated
 
-    PS_Curated -- Trigger --> CF_Gold
+    Topic_Curated -- Trigger --> CF_Gold
     CF_Gold -- Llama a SP<br/>(con codigo_descarga) --> SP_Merge_Indices
     SP_Merge_Indices -- Lee --> BQ_Silver
     SP_Merge_Indices -- MERGE --> BQ_Gold_Indices
-    CF_Gold -- Publica msg<br/>(con anio/mes) --> PS_Gold
+    CF_Gold -- Publica msg<br/>(con anio/mes) --> Topic_Gold
 
-    PS_Gold -- Trigger --> CF_Cuadro
+    Topic_Gold -- Trigger --> CF_Cuadro
     CF_Cuadro -- 1. Valida datos --> BQ_Validate
     CF_Cuadro -- 2. Llama SPs --> SP_Calculo
-    CF_Cuadro -- 3. Publica msg --> PS_End
+    CF_Cuadro -- 3. Publica msg --> Topic_End
 
     %% --- Flujo de Errores (DLQs) ---
     CF_Silver -- on error --> DLQ_Raw
     CF_Gold -- on error --> DLQ_Curated
     CF_Cuadro -- on error --> DLQ_Gold
-```
+``
 
 ## 🗂️ Estructura del Repositorio
 ```
