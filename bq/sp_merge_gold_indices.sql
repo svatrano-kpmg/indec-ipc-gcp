@@ -5,7 +5,11 @@ BEGIN
   MERGE `tgs-sandbox.ds_datos_tableros.lkp_indices_ajuste` AS T
   USING (
     SELECT
-      p_codigo_descarga AS indices_id_indice, -- Usa el parámetro
+      CASE p_codigo_descarga
+        WHEN 'IPC' THEN 1
+        WHEN 'IPIM' THEN 2
+        ELSE NULL
+      END AS indices_id_indice,
       anio,
       mes,
       valor

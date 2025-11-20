@@ -77,19 +77,28 @@ def check_and_run_cuadro_tarifario(cloud_event):
 
 def check_data_exists(table_name, anio, mes, codigo, extra_filter_col=None):
     table_ref = f"`{PROJECT_ID}.{BQ_DATASET}.{table_name}`"
-    job_config = bigquery.QueryJobConfig(
-        query_parameters=[
+    
+    params = [
             bigquery.ScalarQueryParameter("anio", "INT64", anio),
             bigquery.ScalarQueryParameter("mes", "INT64", mes),
         ]
-    )
+
     sql = f"SELECT EXISTS (SELECT 1 FROM {table_ref} WHERE anio = @anio AND mes = @mes"
+    
     if extra_filter_col:
-        sql += f" AND {extra_filter_col} = @codigo"
-        job_config.query_parameters.append(
-            bigquery.ScalarQueryParameter("codigo", "STRING", codigo)
-        )
+        if extra_filter_col == 'indices_id_indice':
+            # Convertir 'IPC' a 1 y 'IPIM' a 2
+            indice_id = 1 if codigo == 'IPC' else 2 if codigo == 'IPIM' else 0
+            sql += f" AND {extra_filter_col} = @codigo_id"
+            params.append(bigquery.ScalarQueryParameter("codigo_id", "INT64", indice_id))
+        else:
+            # Para otras tablas, el código es string
+            sql += f" AND {extra_filter_col} = @codigo"
+            params.append(bigquery.ScalarQueryParameter("codigo", "STRING", codigo))
+
     sql += ")"
+
+    job_config = bigquery.QueryJobConfig(query_parameters=params)
     query_job = bq_client.query(sql, job_config=job_config, location=BQ_LOCATION)
     exists = [row[0] for row in query_job.result()][0]
     return exists
