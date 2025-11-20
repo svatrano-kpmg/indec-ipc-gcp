@@ -80,7 +80,7 @@ Cloud Scheduler (OIDC, mensual)
   Cloud Function: cf-indec-cuadro-tarifario (trigger: gold.done)
       ├─ Lee atributos (ej: "IPC", "2024", "10")
       ├─ **1. Validación (SELECT EXISTS)**:
-      │   ├─ lkp_indices_ajuste (para anio/mes/codigo)
+      │   ├─ lkp_indices_ajuste (para anio/mes/codigo) -el count tiene que ser 2 de los distintos códigos de ajuste para esa fecha- 
       │   ├─ lkp_demanda (para anio/mes)
       │   ├─ lkp_escalones (para anio/mes)
       │   └─ lkp_gas_retenido (para anio/mes)
