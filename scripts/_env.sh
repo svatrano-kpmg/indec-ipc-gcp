@@ -36,3 +36,10 @@ export CF_CUADRO="cf-indec-cuadro-tarifario"
 export FILTER_IPC_DESC="NIVEL GENERAL"
 export FILTER_IPC_REGION="Nacional"
 export FILTER_IPIM_APERTURA="ng_nivel_general"
+
+# Entry points
+export ENTRY_POINT_DOWNLOADER="download_data"
+export ENTRY_POINT="process_raw_to_silver"
+export ENTRY_POINT_GOLD="process_silver_to_gold"
+export ENTRY_POINT_CUADRO="process_gold_to_cuadro"
+# export SA_COMPUTE="969553573595-compute@developer.gserviceaccount.com" # Asumiendo que usa esta SA
