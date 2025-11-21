@@ -15,13 +15,17 @@ FILTER_IPC_DESC = os.environ.get("FILTER_IPC_DESC", "NIVEL GENERAL")
 FILTER_IPC_REGION = os.environ.get("FILTER_IPC_REGION", "Nacional")
 FILTER_IPIM_APERTURA = os.environ.get("FILTER_IPIM_APERTURA", "ng_nivel_general")
 
-bq_client = bigquery.Client(project=PROJECT_ID)
-publisher = pubsub_v1.PublisherClient()
-topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
-fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
+# bq_client = bigquery.Client(project=PROJECT_ID)
+# publisher = pubsub_v1.PublisherClient()
+# topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
+# fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
 
 @functions_framework.cloud_event
 def process_raw_to_silver(cloud_event):
+    bq_client = bigquery.Client(project=PROJECT_ID)
+    publisher = pubsub_v1.PublisherClient()
+    topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     try:
         attributes = cloud_event.data["message"]["attributes"]
         codigo = attributes.get("codigo_descarga")
