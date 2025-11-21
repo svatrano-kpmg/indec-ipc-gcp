@@ -168,8 +168,56 @@ El despliegue está 100% automatizado usando los scripts en el directorio `/scri
     # 6. Crear los Cloud Scheduler Jobs (IPC y IPIM)
     ./scripts/06_deploy_scheduler.sh
     ```
+4. **Verificar Despliegue:**
+    Confirmar que todos los servicios estén desplegados correctamente:
+    ```bash
+    gcloud run services list
+    gcloud functions list
+    gcloud scheduler jobs list
+    gcloud pubsub topics list
+    ```
+5. **Configurar dead letter topics (DLQs):**
+    1. Obtener la Suscripción del Cloud Function Gold
+El primer paso es listar las suscripciones creadas en el tópico curated.done y encontrar el ID asociado al cf-indec-gold-trigger.
+```bash
+PROJECT_ID="tgs-sandbox"
+TOPIC_CURATED="curated.done"
 
-4.  **Probar el Pipeline:**
+echo "Buscando la Suscripción para CF Gold en el tópico ${TOPIC_CURATED}..."
+
+#Listar suscripciones y filtrar la que contenga el nombre de la función (o copiar el ID largo)
+gcloud pubsub subscriptions list \
+    --project=${PROJECT_ID} \
+    --topic=${TOPIC_CURATED} \
+    --filter="name ~ cf-indec-gold-trigger" \
+    --format='value(name)'
+```
+Resultado: Copie el ID de la suscripción. Será un nombre largo generado automáticamente (ej: gcf-us-central1-cf-indec-gold-trigger-curated-done-xxxxxx).
+
+    2. Modificar la Suscripción para Agregar el DLQ
+Una vez que tenga el ID de la Suscripción (SUBSCRIPTION_ID), utilice el comando update para configurar el Tópico de Mensajes Fallidos (--dead-letter-topic) y el número máximo de reintentos (--max-delivery-attempts).
+
+Variables a Usar (Inferencia del proyecto):
+
+*DLQ Topic*: curated.done-dlq (Asumiendo que usa la variable ${DLQ_CURATED} de su entorno).
+
+```bash
+# Reemplace con el ID que encontró en el paso anterior
+SUBSCRIPTION_ID="<ID_DE_LA_SUSCRIPCION_CF_GOLD>" 
+DLQ_TOPIC="curated.done-dlq" 
+
+echo "Configurando DLQ ${DLQ_TOPIC} en la suscripción ${SUBSCRIPTION_ID}..."
+
+gcloud pubsub subscriptions update ${SUBSCRIPTION_ID} \
+    --dead-letter-topic=${DLQ_TOPIC} \
+    --max-delivery-attempts=5 \
+    --project=${PROJECT_ID} 
+    
+echo "DLQ configurado. Los mensajes fallidos (tras 5 reintentos) irán a ${DLQ_TOPIC}."
+```
+
+
+6.  **Probar el Pipeline:**
     Se puede forzar la ejecución de los jobs desde la consola de Cloud Scheduler.
     ```bash
     gcloud scheduler jobs run job-indec-ipc
@@ -183,3 +231,29 @@ Para eliminar todos los recursos creados por este despliegue, ejecuta:
 ```bash
 ./scripts/07_cleanup.sh
 ```
+
+### Decisiones de Diseño Importantes
+#### Arquitectura event-driven
+El pipeline está diseñado para ser completamente event-driven, utilizando Pub/Sub para la comunicación entre microservicios. Esto permite una alta escalabilidad y desacoplamiento entre componentes.
+
+
+#### ¿Por Qué el Stored Procedure (SP) de Gold es el Mismo para IPC e IPIM?
+El SP se pasa en el mensaje para flexibilidad futura, pero el SP real ejecutado está unificado porque el diseño del pipeline utiliza el patrón de Manejador Unificado (Unified Handler).
+
+1. El SP es Fijo (Unificado) por Diseño
+El nombre del SP que se invoca en esta etapa es ds_datos_tableros.sp_merge_lkp_indices_ajuste. Este nombre está "hardcodeado" en la lógica del negocio porque:
+
+Lógica Unificada: El propósito de esta etapa Gold es siempre el mismo para cualquier índice (IPC o IPIM): tomar los datos de la capa Silver y hacer un MERGE en la tabla maestra lkp_indices_ajuste.
+
+La Diferenciación es el Parámetro: El SP no necesita cambiar de nombre. En su lugar, el SP recibe el parámetro dinámico @codigo_descarga (IPC o IPIM), y usa ese valor para filtrar qué datos de Silver debe insertar.
+
+2. Por Qué se Pasa en el Mensaje (Flexibilidad)
+El nombre del SP (nombre_procedure_gold) se introduce en el payload del Cloud Scheduler al inicio y se propaga a través de los tópicos (raw.done, curated.done).
+
+Esta es una decisión de diseño para mantener la flexibilidad del pipeline:
+
+Reutilización: Si en el futuro se añade un tercer índice (IPIE), y ese índice requiriera una lógica de carga a Gold totalmente diferente (por ejemplo, a una tabla diferente o con un proceso ETL distinto), el Scheduler podría enviarle un nombre de SP diferente (ej: sp_merge_ipie_gold).
+
+El CF Gold es un Delegador: La Cloud Function Gold (cf-indec-gold-trigger) simplemente lee el atributo nombre_procedure_gold y lo ejecuta dinámicamente con la sentencia CALL {nombre_procedure_gold}(@codigo_descarga).
+
+En resumen, el pipeline está diseñado para poder ser dinámico en el SP, aunque para los casos actuales (IPC y IPIM), ambos apuntan al mismo SP unificado (sp_merge_lkp_indices_ajuste).
