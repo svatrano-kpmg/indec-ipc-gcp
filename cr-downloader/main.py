@@ -10,12 +10,15 @@ PROJECT_ID = os.environ.get("PROJECT_ID")
 GCS_BUCKET = os.environ.get("GCS_BUCKET")
 PUB_SUB_TOPIC = os.environ.get("PUB_SUB_TOPIC") # ej: raw.done
 
-publisher = pubsub_v1.PublisherClient()
-topic_path = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC)
-fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
+# publisher = pubsub_v1.PublisherClient()
+# topic_path = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC)
+# fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
 
 @functions_framework.http
 def download_and_publish(request):
+    publisher = pubsub_v1.PublisherClient()
+    topic_path = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC)
+    fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
     try:
         data = request.get_json(silent=True)
         if not data:
