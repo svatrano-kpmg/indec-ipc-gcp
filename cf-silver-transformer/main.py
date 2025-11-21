@@ -107,18 +107,9 @@ def transform_ipc(df):
     # 1. Limpieza de nombres de columnas (ya lo tenía)
     df.columns = df.columns.str.strip().str.replace('í', 'i')
     # 2. *** Limpiar los valores de las celdas ***
-    # Esto elimina espacios al inicio y final de las cadenas en las columnas de filtro.
     df["Descripcion"] = df["Descripcion"].str.strip()
     df["Region"] = df["Region"].str.strip()
-    print(f"Filtro DESCRIPCION (L: {len(FILTER_IPC_DESC)}): '{FILTER_IPC_DESC}'")
-    print(f"Filtro REGION (L: {len(FILTER_IPC_REGION)}): '{FILTER_IPC_REGION}'")
-    print(f"Primeras 10 filas del DF (head):")
-    # Usamos to_string() para asegurarnos de que se imprima todo el contenido sin truncar.
-    print(df.head(10).to_string())
-
-    print(f"Valores Únicos de 'Descripcion' post-strip: {df['Descripcion'].unique()}")
-    print(f"Valores Únicos de 'Region' post-strip: {df['Region'].unique()}")
-
+    
     df_filtered = df[
         (df["Descripcion"] == FILTER_IPC_DESC) &
         (df["Region"] == FILTER_IPC_REGION)

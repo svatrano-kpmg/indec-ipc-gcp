@@ -3,3 +3,4 @@ pandas==2.*
 google-cloud-bigquery==3.*
 google-cloud-pubsub==2.*
 gcsfs==2024.6.0
+pyarrow
