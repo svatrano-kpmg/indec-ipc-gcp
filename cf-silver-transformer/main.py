@@ -8,7 +8,7 @@ import gcsfs
 PROJECT_ID = os.environ.get("PROJECT_ID")
 BQ_DATASET = os.environ.get("BQ_DATASET") # ej: tgs_sandbox_curated
 BQ_TABLE = os.environ.get("BQ_TABLE") # ej: indec_ipc
-PUB_SUB_TOPIC_OUT = os.environ.get("PUB SUB_TOPIC_OUT") # ej: curated.done
+PUB_SUB_TOPIC_OUT = os.environ.get("PUB_SUB_TOPIC_OUT") # ej: curated.done
 
 # Filtros (leídos desde variables de entorno)
 FILTER_IPC_DESC = os.environ.get("FILTER_IPC_DESC", "NIVEL GENERAL")

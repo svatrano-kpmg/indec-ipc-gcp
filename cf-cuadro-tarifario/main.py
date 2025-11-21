@@ -69,7 +69,8 @@ def check_and_run_cuadro_tarifario(cloud_event):
             anio=str(anio),
             mes=str(mes)
         )
-        print(f"Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {future.get()})")
+        message_id = future.result()  # bloquea hasta que se publique
+        print(f"[{codigo}] Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {message_id})")
 
     except Exception as e:
         print(f"Error en 'check_and_run_cuadro_tarifario' para {anio_str}-{mes_str}: {e}")

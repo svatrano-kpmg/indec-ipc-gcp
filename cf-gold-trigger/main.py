@@ -5,7 +5,7 @@ from google.cloud import bigquery, pubsub_v1
 
 PROJECT_ID = os.environ.get("PROJECT_ID")
 BQ_LOCATION = os.environ.get("BQ_LOCATION")
-PUB_SUB_TOPIC_OUT = os.environ.get("PUB SUB_TOPIC_OUT") # ej: gold.done
+PUB_SUB_TOPIC_OUT = os.environ.get("PUB_SUB_TOPIC_OUT") # ej: gold.done
 
 # bq_client = bigquery.Client(project=PROJECT_ID, location=BQ_LOCATION)
 # publisher = pubsub_v1.PublisherClient()
@@ -49,7 +49,8 @@ def call_gold_sp(cloud_event):
             anio=max_anio_str,
             mes=max_mes_str
         )
-        print(f"[{codigo}] Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {future.get()})")
+        message_id = future.result()  # bloquea hasta que se publique
+        print(f"[{codigo}] Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {message_id})")
 
     except Exception as e:
         print(f"Error en 'call_gold_sp' para {codigo} (Período: {max_anio_str}-{max_mes_str}): {e}")
