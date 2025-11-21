@@ -104,7 +104,13 @@ def process_raw_to_silver(cloud_event):
         raise
 
 def transform_ipc(df):
+    # 1. Limpieza de nombres de columnas (ya lo tenía)
     df.columns = df.columns.str.strip().str.replace('í', 'i')
+    
+    # 2. *** Limpiar los valores de las celdas ***
+    # Esto elimina espacios al inicio y final de las cadenas en las columnas de filtro.
+    df["Descripcion"] = df["Descripcion"].str.strip()
+    df["Region"] = df["Region"].str.strip()
     df_filtered = df[
         (df["Descripcion"] == FILTER_IPC_DESC) &
         (df["Region"] == FILTER_IPC_REGION)
