@@ -1,5 +1,5 @@
 #!/binbin/bash
-source scripts/_env.sh
+source ./_env.sh
 set -euo pipefail
 
 echo "--- Obteniendo URL del Cloud Run Downloader ---"
