@@ -7,12 +7,15 @@ PROJECT_ID = os.environ.get("PROJECT_ID")
 BQ_LOCATION = os.environ.get("BQ_LOCATION")
 PUB_SUB_TOPIC_OUT = os.environ.get("PUB SUB_TOPIC_OUT") # ej: gold.done
 
-bq_client = bigquery.Client(project=PROJECT_ID, location=BQ_LOCATION)
-publisher = pubsub_v1.PublisherClient()
-topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
+# bq_client = bigquery.Client(project=PROJECT_ID, location=BQ_LOCATION)
+# publisher = pubsub_v1.PublisherClient()
+# topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
 
 @functions_framework.cloud_event
 def call_gold_sp(cloud_event):
+    bq_client = bigquery.Client(project=PROJECT_ID, location=BQ_LOCATION)
+    publisher = pubsub_v1.PublisherClient()
+    topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
     codigo = "UNKNOWN"
     max_anio_str = "UNKNOWN"
     max_mes_str = "UNKNOWN"
