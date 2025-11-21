@@ -97,7 +97,9 @@ def process_raw_to_silver(cloud_event):
             max_anio=str(max_anio),
             max_mes=str(max_mes)
         )
-        print(f"[{codigo}] Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {future.get()})")
+        message_id = future.result()  # bloquea hasta que se publique
+        print(f"[{codigo}] Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {message_id})")
+        # print(f"[{codigo}] Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {future.get()})")
 
     except Exception as e:
         print(f"Error en 'process_raw_to_silver' para {gcs_uri}: {e}")
