@@ -16,6 +16,7 @@ echo "--- Creando Job de Scheduler (IPC) ---"
 gcloud scheduler jobs create http job-indec-ipc \
   --schedule="5 10 1 * *" \
   --time-zone="America/Argentina/Buenos_Aires" \
+  --location=${REGION} \
   --uri="${CR_DOWNLOADER_URL}" \
   --http-method="POST" \
   --message-body='{
@@ -30,6 +31,7 @@ echo "--- Creando Job de Scheduler (IPIM) ---"
 gcloud scheduler jobs create http job-indec-ipim \
   --schedule="5 10 1 * *" \
   --time-zone="America/Argentina/Buenos_Aires" \
+  --location=${REGION} \
   --uri="${CR_DOWNLOADER_URL}" \
   --http-method="POST" \
   --message-body='{
