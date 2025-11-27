@@ -49,7 +49,7 @@ def call_gold_sp(cloud_event):
             anio=max_anio_str,
             mes=max_mes_str
         )
-        message_id = future.result()  # bloquea hasta que se publique
+        message_id = future.result(timeout=30)  # bloquea hasta que se publique
         print(f"[{codigo}] Mensaje publicado en {PUB_SUB_TOPIC_OUT} (ID: {message_id})")
 
     except Exception as e:
