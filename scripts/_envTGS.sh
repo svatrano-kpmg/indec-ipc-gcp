@@ -33,6 +33,7 @@ export CR_DOWNLOADER="cr-indec-downloader"
 export CF_SILVER="cf-indec-silver-transformer"
 export CF_GOLD="cf-indec-gold-trigger"
 export CF_CUADRO="cf-indec-cuadro-tarifario"
+export CF_DOWNLOADER="cf-indec-downloader-dataproc"
 
 # Cloud Function Silver filters (estan en las variables de entorno pero la pongo igual)
 export FILTER_IPC_DESC="NIVEL GENERAL"
