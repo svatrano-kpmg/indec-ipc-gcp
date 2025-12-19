@@ -5,6 +5,7 @@ set -euo pipefail
 echo "--- Obteniendo URL del Cloud Run Downloader ---"
 CR_DOWNLOADER_URL=$(gcloud run services describe ${CR_DOWNLOADER} --platform=managed --region=${REGION} --format='value(status.url)')
 
+
 if [ -z "${CR_DOWNLOADER_URL}" ]; then
   echo "Error: No se pudo obtener la URL de ${CR_DOWNLOADER}"
   exit 1
@@ -44,14 +45,19 @@ gcloud scheduler jobs create http job-indec-ipim \
 
 echo "--- Creación de Schedulers completada ---"
 
+echo "--- Obteniendo URL del Cloud Run Downloader ---"
+CF_DOWNLOADER_URL=$(gcloud run services describe ${CF_DOWNLOADER} --platform=managed --region=${REGION} --format='value(status.url)')
+
+if [ -z "${CF_DOWNLOADER_URL}" ]; then
+  echo "Error: No se pudo obtener la URL de ${CF_DOWNLOADER}"
+  exit 1
+fi
 echo "URL de invocación para el Dataproc: ${CF_DOWNLOADER_URL}"
 
 echo "--- Creando Job de Scheduler (IPC)  para dataproc---"
 
 # Variables de Entorno (Asegúrate de que estén definidas)
-# REGION="us-central1"
 # CF_DOWNLOADER_URL="https://REGION-PROJECT_ID.cloudfunctions.net/dataproc-launcher-cf" # Reemplazar con la URL real de tu CF
-# SA_SCHEDULER="mi-cuenta-de-servicio-scheduler@PROJECT_ID.iam.gserviceaccount.com" # Reemplazar
 
 gcloud scheduler jobs create http job-indec-ipc-dataproc \
   --schedule="5 10 1 * *" \
