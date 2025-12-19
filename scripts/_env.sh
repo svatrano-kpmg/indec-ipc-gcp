@@ -9,6 +9,7 @@ export SA_COMPUTE="${PROJECT_ID}@compute-system.iam.gserviceaccount.com"
 
 # GCS
 export GCS_RAW_BUCKET="${PROJECT_ID}-raw"
+export GCS_DATAPROC_BUCKET="${PROJECT_ID}-dataproc-staging" # NUEVO
 
 # Pub/Sub Topics
 export TOPIC_RAW="raw.done"
@@ -20,6 +21,10 @@ export TOPIC_END="end.done"
 export DLQ_RAW="${TOPIC_RAW}-dlq"
 export DLQ_CURATED="${TOPIC_CURATED}-dlq"
 export DLQ_GOLD="${TOPIC_GOLD}-dlq"
+
+# Dataproc
+export DATAPROC_CLUSTER="sqlserver-cluster"
+export CF_DOWNLOADER_LAUNCHER="cf-indec-downloader-launcher"
 
 # BigQuery
 export BQ_DS_SILVER="tgs_sandbox_curated"

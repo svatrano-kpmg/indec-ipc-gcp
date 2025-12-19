@@ -5,29 +5,37 @@ import requests
 from google.cloud import pubsub_v1, storage
 from datetime import datetime
 
-# Asume que las variables de entorno ya están configuradas en el entorno del Job de Dataproc
-PROJECT_ID = os.environ.get("PROJECT_ID")
-GCS_BUCKET = os.environ.get("GCS_BUCKET")
-PUB_SUB_TOPIC = os.environ.get("PUB_SUB_TOPIC")
-
-def download_and_publish(codigo, url, folder, sp_gold):
+def download_and_publish(args):
     """
     Función principal que ejecuta la lógica de descarga, subida a GCS y publicación en Pub/Sub.
+    Recibe un objeto args con todos los parámetros necesarios.
     """
-    if not all([PROJECT_ID, GCS_BUCKET, PUB_SUB_TOPIC]):
-        print("Error: Las variables de entorno PROJECT_ID, GCS_BUCKET, o PUB_SUB_TOPIC no están configuradas.")
+    # Desempaquetar argumentos de infraestructura y negocio
+    project_id = args.project_id
+    bucket_name = args.bucket
+    topic_name = args.topic
+    codigo = args.codigo
+    url = args.url
+    folder = args.folder
+    sp_gold = args.sp_gold
+
+    # Validación básica (aunque argparse required=True ya maneja la mayoría)
+    if not all([project_id, bucket_name, topic_name]):
+        print("Error: Faltan argumentos de infraestructura (project_id, bucket, o topic).")
         sys.exit(1)
 
+    # Inicializar clientes de GCP
     publisher = pubsub_v1.PublisherClient()
-    topic_path = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC)
-    storage_client = storage.Client(project=PROJECT_ID)
+    topic_path = publisher.topic_path(project_id, topic_name)
+    storage_client = storage.Client(project=project_id)
 
     try:
+        # 1. Descarga del archivo
         print(f"[{codigo}] Iniciando descarga desde: {url}")
         r = requests.get(url, timeout=60)
         r.raise_for_status()
 
-        # Conversión de encoding
+        # 2. Manejo de codificación (latin-1 a utf-8)
         raw = r.content
         try:
             text = raw.decode("latin-1")
@@ -35,19 +43,21 @@ def download_and_publish(codigo, url, folder, sp_gold):
             text = raw.decode(r.encoding or "utf-8", errors="replace")
         content = text.encode("utf-8")
 
+        # 3. Preparar nombre y ruta en GCS
         filename_original = url.split("/")[-1]
         datestamp = datetime.now().strftime("%Y-%m-%d")
-
-        # Subir a Cloud Storage
-        print(f"[{codigo}] Guardando en GCS (bucket: {GCS_BUCKET}, carpeta: {folder})")
-        bucket = storage_client.bucket(GCS_BUCKET)
+        
+        print(f"[{codigo}] Guardando en GCS (bucket: {bucket_name}, carpeta: {folder})")
+        bucket = storage_client.bucket(bucket_name)
         object_name = f"{folder}/{datestamp}_{filename_original}"
         blob = bucket.blob(object_name)
+        
+        # 4. Subir archivo a GCS
         blob.upload_from_string(content, content_type="text/csv; charset=utf-8")
-        gcs_uri = f"gs://{GCS_BUCKET}/{object_name}"
+        gcs_uri = f"gs://{bucket_name}/{object_name}"
 
-        # Publicar en Pub/Sub
-        print(f"[{codigo}] Publicando en topic: {PUB_SUB_TOPIC}")
+        # 5. Publicar mensaje de finalización en Pub/Sub
+        print(f"[{codigo}] Publicando en topic: {topic_name}")
         future = publisher.publish(
             topic_path,
             b"File downloaded successfully",
@@ -58,25 +68,32 @@ def download_and_publish(codigo, url, folder, sp_gold):
         )
         message_id = future.result(timeout=30)
 
-        print(f"[{codigo}] Mensaje publicado (ID: {message_id})")
-        print(f"[{codigo}] Tarea completada con GCS URI: {gcs_uri}")
+        print(f"[{codigo}] Mensaje publicado exitosamente (ID: {message_id})")
+        print(f"[{codigo}] Tarea completada. Archivo disponible en: {gcs_uri}")
 
     except requests.exceptions.RequestException as e:
         print(f"Error HTTP al descargar {url}: {e}")
         sys.exit(1)
     except Exception as e:
-        print(f"Error interno: {e}")
+        print(f"Error interno durante la ejecución: {e}")
         sys.exit(1)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Script para descargar, subir a GCS y publicar en Pub/Sub.")
-    parser.add_argument("--codigo", required=True, help="Código de la descarga (ej: 123)")
-    parser.add_argument("--url", required=True, help="URL del archivo a descargar")
-    parser.add_argument("--folder", required=True, help="Nombre de la carpeta de destino en GCS")
-    parser.add_argument("--sp_gold", required=True, help="Nombre del stored procedure gold")
+    parser = argparse.ArgumentParser(description="Script Worker de Dataproc para descarga y publicación.")
+    
+    # --- Argumentos de Negocio (del Scheduler) ---
+    parser.add_argument("--codigo", required=True, help="Código identificador de la descarga (ej: IPC, IPIM)")
+    parser.add_argument("--url", required=True, help="URL pública del archivo a descargar")
+    parser.add_argument("--folder", required=True, help="Carpeta destino dentro del bucket Raw")
+    parser.add_argument("--sp_gold", required=True, help="Nombre del Stored Procedure a ejecutar en capa Gold")
+    
+    # --- Argumentos de Infraestructura (Pasados por el Launcher) ---
+    parser.add_argument("--project_id", required=True, help="ID del proyecto de Google Cloud")
+    parser.add_argument("--topic", required=True, help="Nombre del Tópico Pub/Sub para notificar (raw.done)")
+    parser.add_argument("--bucket", required=True, help="Nombre del Bucket GCS para guardar los datos (Raw)")
 
     args = parser.parse_args()
     
     # Llamar a la función principal con los argumentos de línea de comandos
-    download_and_publish(args.codigo, args.url, args.folder, args.sp_gold)
+    download_and_publish(args.codigo, args.url, args.folder, args.sp_gold, args.project_id, args.topic, args.bucket)

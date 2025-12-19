@@ -2,73 +2,63 @@
 source ./_env.sh
 set -euo pipefail
 
-echo "--- Obteniendo URL del Cloud Run Downloader ---"
-CR_DOWNLOADER_URL=$(gcloud run services describe ${CR_DOWNLOADER} --platform=managed --region=${REGION} --format='value(status.url)')
+# Asegurarse de que las variables necesarias existan
+if [ -z "${CF_DOWNLOADER_LAUNCHER}" ] || [ -z "${DATAPROC_CLUSTER}" ]; then
+    echo "Error: Variables CF_DOWNLOADER_LAUNCHER o DATAPROC_CLUSTER no definidas en _env.sh"
+    exit 1
+fi
 
+echo "--- Obteniendo URL de la Cloud Function Launcher ---"
+# Para Cloud Functions Gen 2, la URL está en serviceConfig.uri
+LAUNCHER_URL=$(gcloud functions describe ${CF_DOWNLOADER_LAUNCHER} \
+    --gen2 \
+    --region=${REGION} \
+    --format='value(serviceConfig.uri)')
 
-if [ -z "${CR_DOWNLOADER_URL}" ]; then
-  echo "Error: No se pudo obtener la URL de ${CR_DOWNLOADER}"
+if [ -z "${LAUNCHER_URL}" ]; then
+  echo "Error: No se pudo obtener la URL de la función ${CF_DOWNLOADER_LAUNCHER}. ¿Está desplegada?"
   exit 1
 fi
 
-echo "URL de invocación: ${CR_DOWNLOADER_URL}"
+echo "URL de invocación detectada: ${LAUNCHER_URL}"
 
 echo "--- Creando Job de Scheduler (IPC) ---"
+# Usamos || true para que no falle si el job ya existe (intentará actualizarlo o fallará y seguiremos)
+# Pero 'jobs create' falla si existe. Mejor borrarlos primero o usar 'jobs update' si quisieras lógica idempotente compleja.
+# Aquí asumimos limpieza previa o borrado simple:
+gcloud scheduler jobs delete job-indec-ipc --location=${REGION} --quiet || echo "Job IPC no existía"
+
 gcloud scheduler jobs create http job-indec-ipc \
-  --schedule="5 10 1 * *" \
-  --time-zone="America/Argentina/Buenos_Aires" \
-  --location=${REGION} \
-  --uri="${CR_DOWNLOADER_URL}" \
-  --http-method="POST" \
-  --message-body='{
-      "codigo_descarga": "IPC",
-      "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
-      "nombre_carpeta_gcs": "ipc",
-      "nombre_procedure_gold": "ds_datos_tableros.sp_merge_lkp_indices_ajuste"
-    }' \
-  --oidc-service-account-email="${SA_SCHEDULER}" || echo "Job job-indec-ipc ya existe."
+    --location=${REGION} \
+    --schedule="5 10 1 * *" \
+    --uri="${LAUNCHER_URL}" \
+    --http-method=POST \
+    --oidc-service-account-email=${SA_SCHEDULER} \
+    --headers="Content-Type=application/json" \
+    --message-body='{
+        "codigo_descarga": "IPC",
+        "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
+        "nombre_carpeta_gcs": "ipc",
+        "nombre_procedure_gold": "ds_datos_tableros.sp_merge_lkp_indices_ajuste",
+        "cluster_name": "'"${DATAPROC_CLUSTER}"'"
+    }'
 
 echo "--- Creando Job de Scheduler (IPIM) ---"
+gcloud scheduler jobs delete job-indec-ipim --location=${REGION} --quiet || echo "Job IPIM no existía"
+
 gcloud scheduler jobs create http job-indec-ipim \
-  --schedule="5 10 1 * *" \
-  --time-zone="America/Argentina/Buenos_Aires" \
-  --location=${REGION} \
-  --uri="${CR_DOWNLOADER_URL}" \
-  --http-method="POST" \
-  --message-body='{
-      "codigo_descarga": "IPIM",
-      "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/indice_ipim.csv",
-      "nombre_carpeta_gcs": "ipim",
-      "nombre_procedure_gold": "ds_datos_tableros.sp_merge_lkp_indices_ajuste"
-    }' \
-  --oidc-service-account-email="${SA_SCHEDULER}" || echo "Job job-indec-ipim ya existe."
+    --location=${REGION} \
+    --schedule="5 10 1 * *" \
+    --uri="${LAUNCHER_URL}" \
+    --http-method=POST \
+    --oidc-service-account-email=${SA_SCHEDULER} \
+    --headers="Content-Type=application/json" \
+    --message-body='{
+        "codigo_descarga": "IPIM",
+        "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/indice_ipim.csv",
+        "nombre_carpeta_gcs": "ipim",
+        "nombre_procedure_gold": "ds_datos_tableros.sp_merge_lkp_indices_ajuste",
+        "cluster_name": "'"${DATAPROC_CLUSTER}"'"
+    }'
 
-echo "--- Creación de Schedulers completada ---"
-
-echo "--- Obteniendo URL del Cloud Run Downloader ---"
-CF_DOWNLOADER_URL=$(gcloud run services describe ${CF_DOWNLOADER} --platform=managed --region=${REGION} --format='value(status.url)')
-
-if [ -z "${CF_DOWNLOADER_URL}" ]; then
-  echo "Error: No se pudo obtener la URL de ${CF_DOWNLOADER}"
-  exit 1
-fi
-echo "URL de invocación para el Dataproc: ${CF_DOWNLOADER_URL}"
-
-echo "--- Creando Job de Scheduler (IPC)  para dataproc---"
-
-# Variables de Entorno (Asegúrate de que estén definidas)
-# CF_DOWNLOADER_URL="https://REGION-PROJECT_ID.cloudfunctions.net/dataproc-launcher-cf" # Reemplazar con la URL real de tu CF
-
-gcloud scheduler jobs create http job-indec-ipc-dataproc \
-  --schedule="5 10 1 * *" \
-  --time-zone="America/Argentina/Buenos_Aires" \
-  --location=${REGION} \
-  --uri="${CF_DOWNLOADER_URL}" \
-  --http-method="POST" \
-  --message-body='{
-      "codigo_descarga": "IPC",
-      "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
-      "nombre_carpeta_gcs": "ipc",
-      "nombre_procedure_gold": "ds_datos_tableros.sp_merge_lkp_indices_ajuste"
-    }' \
-  --oidc-service-account-email="${SA_SCHEDULER}"
+echo "--- Despliegue de Scheduler completado ---"
