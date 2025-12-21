@@ -135,7 +135,8 @@ Cloud Scheduler (OIDC, mensual)
 
 El despliegue está 100% automatizado usando los scripts en el directorio `/scripts`.
 
-**Proyecto:** `tgs-sandbox`
+**Proyecto procesamiento:** `prj-data-process-dev`
+**Proyecto adquisición:** `prj-data-intake-dev`
 **Región:** `us-central1`
 
 ### Pasos
@@ -146,7 +147,7 @@ El despliegue está 100% automatizado usando los scripts en el directorio `/scri
 2.  **Autenticación:**
     ```bash
     gcloud auth login
-    gcloud config set project tgs-sandbox
+    gcloud config set project $PROJECT_ID
     ```
 
 3.  **Ejecutar Scripts de Despliegue (en orden):**

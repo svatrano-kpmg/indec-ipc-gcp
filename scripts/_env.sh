@@ -1,15 +1,21 @@
 #!/bin/bash
-export PROJECT_ID="tgs-sandbox"
+# export PROJECT_ID="tgs-sandbox"
 export REGION="us-central1"
+# export PROJECT_ID="prj-data-process-dev"
+export PROJECT_ID="prj-data-intake-dev"
 
 # SAs (Mantenemos la SA del Scheduler)
 export SA_SCHEDULER="sa-scheduler-indec@${PROJECT_ID}.iam.gserviceaccount.com"
 # Usaremos la SA de Compute por defecto para los servicios, por simplicidad
-export SA_COMPUTE="${PROJECT_ID}@compute-system.iam.gserviceaccount.com" 
+# export SA_COMPUTE="${PROJECT_ID}@compute-system.iam.gserviceaccount.com" 
+export SA_COMPUTE="sa-dataproc@prj-data-process-dev.iam.gserviceaccount.com"
+
 
 # GCS
-export GCS_RAW_BUCKET="${PROJECT_ID}-raw"
-export GCS_DATAPROC_BUCKET="${PROJECT_ID}-dataproc-staging" # NUEVO
+# export GCS_RAW_BUCKET="${PROJECT_ID}-raw"
+# export GCS_DATAPROC_BUCKET="${PROJECT_ID}-dataproc-staging" # NUEVO
+export GCS_RAW_BUCKET="raw-zone-lakehouse"
+export GCS_DATAPROC_BUCKET="${GCS_RAW_BUCKET}"
 
 # Pub/Sub Topics
 export TOPIC_RAW="raw.done"
