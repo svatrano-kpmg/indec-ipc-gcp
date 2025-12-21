@@ -3,6 +3,9 @@
 export REGION="us-central1"
 # export PROJECT_ID="prj-data-process-dev"
 export PROJECT_ID="prj-data-intake-dev"
+export PROJECT_INTAKE="prj-data-intake-dev"
+export PROJECT_PROCESS="prj-data-process-dev"
+export PROJECT_LAKE="prj-data-lakehouse-dev"
 
 # SAs (Mantenemos la SA del Scheduler)
 export SA_SCHEDULER="sa-scheduler-indec@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -13,9 +16,9 @@ export SA_COMPUTE="sa-dataproc@prj-data-process-dev.iam.gserviceaccount.com"
 
 # GCS
 # export GCS_RAW_BUCKET="${PROJECT_ID}-raw"
-# export GCS_DATAPROC_BUCKET="${PROJECT_ID}-dataproc-staging" # NUEVO
+export GCS_DATAPROC_BUCKET="script-pipelines-dataproc" # NUEVO
 export GCS_RAW_BUCKET="raw-zone-lakehouse"
-export GCS_DATAPROC_BUCKET="${GCS_RAW_BUCKET}"
+# export GCS_DATAPROC_BUCKET="${GCS_RAW_BUCKET}"
 
 # Pub/Sub Topics
 export TOPIC_RAW="raw.done"
