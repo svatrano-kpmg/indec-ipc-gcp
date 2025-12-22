@@ -29,7 +29,7 @@ gcloud functions deploy ${CF_DOWNLOADER_LAUNCHER} \
     --runtime=python311 \
     --source=cf-indec-downloader-dataproc/ \
     --entry-point=launch_dataproc_job \
-    --service-account=${SA_COMPUTE} \
+    --service-account=${SA_RUN} \
     --trigger-http \
     --no-allow-unauthenticated \
     --set-env-vars="PROJECT_ID=${PROJECT_ID},REGION=${REGION},SCRIPT_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/download_script.py,REQS_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/requirements.txt,PUB_SUB_TOPIC=${TOPIC_RAW},GCS_BUCKET=${GCS_RAW_BUCKET}"

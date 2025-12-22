@@ -11,7 +11,8 @@ export PROJECT_LAKE="prj-data-lakehouse-dev"
 export SA_SCHEDULER="sa-scheduler-indec@${PROJECT_ID}.iam.gserviceaccount.com"
 # Usaremos la SA de Compute por defecto para los servicios, por simplicidad
 # export SA_COMPUTE="${PROJECT_ID}@compute-system.iam.gserviceaccount.com" 
-export SA_COMPUTE="sa-dataproc@prj-data-process-dev.iam.gserviceaccount.com"
+export SA_RUN="sa-cloud-function@${PROJECT_INTAKE}.iam.gserviceaccount.com"
+export SA_COMPUTE="sa-dataproc@${PROJECT_PROCESS}.iam.gserviceaccount.com"
 
 
 # GCS
