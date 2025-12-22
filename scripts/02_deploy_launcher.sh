@@ -14,8 +14,8 @@ fi
 # 2. Subir el script Worker y requirements a GCS
 echo "--- Subiendo scripts de Dataproc a GCS ---"
 # Asumimos que la carpeta local se llama dp-downloader
-gsutil cp dp-downloader/download_script.py gs://${GCS_DATAPROC_BUCKET}/scripts/download_script.py
-gsutil cp dp-downloader/requirements.txt gs://${GCS_DATAPROC_BUCKET}/scripts/requirements.txt
+gsutil cp dp-downloader/download_script.py gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/download_script.py
+gsutil cp dp-downloader/requirements.txt gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/requirements.txt
 
 echo "Scripts subidos a: gs://${GCS_DATAPROC_BUCKET}/scripts/"
 
@@ -32,7 +32,7 @@ gcloud functions deploy ${CF_DOWNLOADER_LAUNCHER} \
     --service-account=${SA_COMPUTE} \
     --trigger-http \
     --no-allow-unauthenticated \
-    --set-env-vars="PROJECT_ID=${PROJECT_ID},REGION=${REGION},SCRIPT_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/download_script.py,REQS_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/requirements.txt,PUB_SUB_TOPIC=${TOPIC_RAW},GCS_BUCKET=${GCS_RAW_BUCKET}"
+    --set-env-vars="PROJECT_ID=${PROJECT_ID},REGION=${REGION},SCRIPT_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/download_script.py,REQS_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/requirements.txt,PUB_SUB_TOPIC=${TOPIC_RAW},GCS_BUCKET=${GCS_RAW_BUCKET}"
 
 # 4. Dar permisos al Scheduler para invocar esta función
 echo "--- Asignando rol invoker a la Service Account del Scheduler ---"
