@@ -29,10 +29,12 @@ gcloud functions deploy ${CF_DOWNLOADER_LAUNCHER} \
     --runtime=python311 \
     --source=cf-indec-downloader-dataproc/ \
     --entry-point=launch_dataproc_job \
-    --service-account=${SA_RUN} \
+    --service-account="sa-dataproc@prj-data-intake-dev.iam.gserviceaccount.com" \
     --trigger-http \
     --no-allow-unauthenticated \
-    --set-env-vars="PROJECT_ID=${PROJECT_ID},REGION=${REGION},SCRIPT_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/download_script.py,REQS_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/requirements.txt,PUB_SUB_TOPIC=${TOPIC_RAW},GCS_BUCKET=${GCS_RAW_BUCKET}"
+    --set-env-vars="PROJECT_ID=${PROJECT_INTAKE},REGION=${REGION},SCRIPT_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/download_script.py,REQS_URI=gs://${GCS_DATAPROC_BUCKET}/scripts/calculotarifario/requirements.txt,PUB_SUB_TOPIC=${TOPIC_RAW},GCS_BUCKET=${GCS_RAW_BUCKET}"
+
+
 
 # 4. Dar permisos al Scheduler para invocar esta función
 echo "--- Asignando rol invoker a la Service Account del Scheduler ---"

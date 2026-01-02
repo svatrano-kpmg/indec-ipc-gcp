@@ -8,6 +8,7 @@ export SA_SCHEDULER="sa-scheduler-indec@${PROJECT_ID}.iam.gserviceaccount.com"
 # Usaremos la SA de Compute por defecto para los servicios, por simplicidad
 # export SA_COMPUTE="${PROJECT_ID}@compute-system.iam.gserviceaccount.com" 
 export SA_COMPUTE="sa-dataproc@prj-data-process-dev.iam.gserviceaccount.com"
+export SA_FUNCTION="sa-cloud-function@prj-data-intake-dev.iam.gserviceaccount.com"
 
 # GCS
 export GCS_RAW_BUCKET="${PROJECT_ID}-raw"

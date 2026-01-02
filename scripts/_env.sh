@@ -8,12 +8,12 @@ export PROJECT_PROCESS="prj-data-process-dev"
 export PROJECT_LAKE="prj-data-lakehouse-dev"
 
 # SAs (Mantenemos la SA del Scheduler)
-export SA_SCHEDULER="sa-scheduler-indec@${PROJECT_ID}.iam.gserviceaccount.com"
+export SA_SCHEDULER="sa-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
 # Usaremos la SA de Compute por defecto para los servicios, por simplicidad
 # export SA_COMPUTE="${PROJECT_ID}@compute-system.iam.gserviceaccount.com" 
-export SA_RUN="sa-cloud-function@${PROJECT_INTAKE}.iam.gserviceaccount.com"
-export SA_COMPUTE="sa-dataproc@${PROJECT_PROCESS}.iam.gserviceaccount.com"
-
+export SA_RUN="sa-dataproc@${PROJECT_INTAKE}.iam.gserviceaccount.com"
+export SA_COMPUTE="sa-function@${PROJECT_PROCESS}.iam.gserviceaccount.com"
+# export SA_FUNCTION="sa-cloud-function@prj-data-intake-dev.iam.gserviceaccount.com"
 
 # GCS
 # export GCS_RAW_BUCKET="${PROJECT_ID}-raw"
@@ -22,7 +22,7 @@ export GCS_RAW_BUCKET="raw-zone-lakehouse"
 # export GCS_DATAPROC_BUCKET="${GCS_RAW_BUCKET}"
 
 # Pub/Sub Topics
-export TOPIC_RAW="raw.done"
+export TOPIC_RAW="projects/${PROJECT_INTAKE}/raw.done"
 export TOPIC_CURATED="curated.done"
 export TOPIC_GOLD="gold.done"
 export TOPIC_END="end.done"
