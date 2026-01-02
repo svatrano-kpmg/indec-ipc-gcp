@@ -11,6 +11,7 @@ REQS_URI = os.environ.get("REQS_URI")
 # Estas variables las pasaremos como argumentos al script de Dataproc
 PUB_SUB_TOPIC = os.environ.get("PUB_SUB_TOPIC") 
 GCS_BUCKET = os.environ.get("GCS_BUCKET")
+DATAPROC_PROJECT_ID = os.environ.get("DATAPROC_PROJECT_ID")
 
 @functions_framework.http
 def launch_dataproc_job(request):
@@ -64,9 +65,11 @@ def launch_dataproc_job(request):
         }
 
         operation = job_client.submit_job(
-            project_id=PROJECT_ID, region=REGION, job=job
-        )
-        
+         project_id=DATAPROC_PROJECT_ID, # <--- CAMBIO: Usar el ID de INTAKE, no el local
+         region=REGION, 
+         job=job
+        )        
+
         return ({
             "status": "Job submitted",
             "job_id": operation.job_id,
