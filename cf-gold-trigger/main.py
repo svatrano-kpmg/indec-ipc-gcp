@@ -6,6 +6,7 @@ from google.cloud import bigquery, pubsub_v1
 PROJECT_ID = os.environ.get("PROJECT_ID")
 BQ_LOCATION = os.environ.get("BQ_LOCATION")
 PUB_SUB_TOPIC_OUT = os.environ.get("PUB_SUB_TOPIC_OUT") # ej: gold.done
+BQ_PROJECT_ID = os.environ.get("BQ_PROJECT_ID")
 
 # bq_client = bigquery.Client(project=PROJECT_ID, location=BQ_LOCATION)
 # publisher = pubsub_v1.PublisherClient()
@@ -13,7 +14,7 @@ PUB_SUB_TOPIC_OUT = os.environ.get("PUB_SUB_TOPIC_OUT") # ej: gold.done
 
 @functions_framework.cloud_event
 def call_gold_sp(cloud_event):
-    bq_client = bigquery.Client(project=PROJECT_ID, location=BQ_LOCATION)
+    bq_client = bigquery.Client(project=BQ_PROJECT_ID, location=BQ_LOCATION)
     publisher = pubsub_v1.PublisherClient()
     topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
     codigo = "UNKNOWN"
@@ -35,7 +36,7 @@ def call_gold_sp(cloud_event):
         if len(sp_name.split('.')) != 2:
              raise ValueError(f"Nombre de SP inválido: {sp_name}")
         
-        sql_call = f"CALL `{PROJECT_ID}.{sp_name}`('{codigo}');"
+        sql_call = f"CALL `{BQ_PROJECT_ID}.{sp_name}`('{codigo}');"
         job = bq_client.query(sql_call)
         job.result() 
 

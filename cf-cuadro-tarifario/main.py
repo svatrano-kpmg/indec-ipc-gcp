@@ -7,8 +7,9 @@ PROJECT_ID = os.environ.get("PROJECT_ID")
 BQ_DATASET = os.environ.get("BQ_DATASET") # ej: ds_datos_tableros
 BQ_LOCATION = os.environ.get("BQ_LOCATION")
 PUB_SUB_TOPIC_OUT = os.environ.get("PUB_SUB_TOPIC_OUT") # ej: end.done
+BQ_PROJECT_ID = os.environ.get("BQ_PROJECT_ID")
 
-bq_client = bigquery.Client(project=PROJECT_ID, location=BQ_LOCATION)
+bq_client = bigquery.Client(project=BQ_PROJECT_ID, location=BQ_LOCATION)
 publisher = pubsub_v1.PublisherClient()
 topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
 
@@ -55,7 +56,7 @@ def check_and_run_cuadro_tarifario(cloud_event):
         print(f"Validación exitosa: Todos los datos para {anio}-{mes} están presentes.")
 
         for sp in SPS_TO_RUN:
-            sp_full_name = f"`{PROJECT_ID}.{BQ_DATASET}.{sp}`"
+            sp_full_name = f"`{BQ_PROJECT_ID}.{BQ_DATASET}.{sp}`"
             print(f"Ejecutando SP: {sp_full_name}...")
             # Asumimos que los SPs no reciben parámetros.
             sql_call = f"CALL {sp_full_name}();" 
@@ -77,7 +78,7 @@ def check_and_run_cuadro_tarifario(cloud_event):
         raise
 
 def check_data_exists(table_name, anio, mes, codigo, extra_filter_col=None):
-    table_ref = f"`{PROJECT_ID}.{BQ_DATASET}.{table_name}`"
+    table_ref = f"`{BQ_PROJECT_ID}.{BQ_DATASET}.{table_name}`"
     
     params = [
             bigquery.ScalarQueryParameter("anio", "INT64", anio),

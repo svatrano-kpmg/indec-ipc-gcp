@@ -23,7 +23,7 @@ gcloud functions deploy ${CF_GOLD} \
     --no-allow-unauthenticated \
     --trigger-topic=${TOPIC_CURATED} \
     --service-account=${SA_COMPUTE} \
-    --set-env-vars="PROJECT_ID=${PROJECT_ID},BQ_LOCATION=${REGION},PUB_SUB_TOPIC_OUT=${TOPIC_GOLD}" \
+    --set-env-vars="BQ_PROJECT_ID=${PROJECT_LAKE},PROJECT_ID=${PROJECT_ID},BQ_LOCATION=${REGION},PUB_SUB_TOPIC_OUT=${TOPIC_GOLD}" \
     --entry-point=call_gold_sp \
     --retry 
 

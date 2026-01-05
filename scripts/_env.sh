@@ -1,11 +1,13 @@
 #!/bin/bash
 # export PROJECT_ID="tgs-sandbox"
 export REGION="us-central1"
+
 # export PROJECT_ID="prj-data-process-dev"
 export PROJECT_ID="prj-data-intake-dev"
-export PROJECT_INTAKE="prj-data-intake-dev"
-export PROJECT_PROCESS="prj-data-process-dev"
-export PROJECT_LAKE="prj-data-lakehouse-dev"
+# --- 1. DEFINICIÓN DE PROYECTOS ---
+export PROJECT_INTAKE="prj-data-intake-dev"    # Scheduler, Launcher CF, Dataproc
+export PROJECT_PROCESS="prj-data-process-dev"  # Pub/Sub, Funciones (Silver/Gold)
+export PROJECT_LAKE="prj-data-lakehouse-dev"   # Storage Raw, BigQuery
 
 # SAs (Mantenemos la SA del Scheduler)
 export SA_SCHEDULER="sa-scheduler@${PROJECT_ID}.iam.gserviceaccount.com"
@@ -37,6 +39,7 @@ export DATAPROC_CLUSTER="sqlserver-cluster"
 export CF_DOWNLOADER_LAUNCHER="cf-indec-downloader-launcher"
 
 # BigQuery
+export BQ_PROJECT_ID="${PROJECT_LAKE}"
 export BQ_DS_SILVER="tgs_sandbox_curated"
 export BQ_TBL_SILVER="indec_ipc"
 export BQ_DS_GOLD="ds_datos_tableros"

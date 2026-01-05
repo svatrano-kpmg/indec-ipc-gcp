@@ -9,6 +9,7 @@ REGION = os.environ.get("REGION")
 SCRIPT_URI = os.environ.get("SCRIPT_URI")
 REQS_URI = os.environ.get("REQS_URI")
 # Estas variables las pasaremos como argumentos al script de Dataproc
+PUB_SUB_TOPIC_PROJECT = os.environ.get("PUB_SUB_TOPIC_PROJECT")
 PUB_SUB_TOPIC = os.environ.get("PUB_SUB_TOPIC") 
 GCS_BUCKET = os.environ.get("GCS_BUCKET")
 DATAPROC_PROJECT_ID = os.environ.get("DATAPROC_PROJECT_ID")
@@ -45,10 +46,9 @@ def launch_dataproc_job(request):
             f"--url={url}",
             f"--folder={folder}",
             f"--sp_gold={sp_gold}",
-            f"--project_id={PROJECT_ID}",      # <--- Agregado
-            f"--topic={PUB_SUB_TOPIC}",        # <--- Agregado
-            f"--bucket={GCS_BUCKET}"           # <--- Agregado
-        ]
+            f"--project_id={PUB_SUB_TOPIC_PROJECT}",    
+            f"--topic={PUB_SUB_TOPIC}",        
+            f"--bucket={GCS_BUCKET}"                   ]
 
         job = {
             "placement": {"cluster_name": cluster_name}, # <--- Usamos la variable
@@ -65,7 +65,7 @@ def launch_dataproc_job(request):
         }
 
         operation = job_client.submit_job(
-         project_id=DATAPROC_PROJECT_ID, # <--- CAMBIO: Usar el ID de INTAKE, no el local
+         project_id=DATAPROC_PROJECT_ID,
          region=REGION, 
          job=job
         )        

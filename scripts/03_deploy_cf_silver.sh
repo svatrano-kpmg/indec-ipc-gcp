@@ -18,12 +18,13 @@ echo "--- Desplegando CF Silver: ${CF_SILVER} ---"
 gcloud functions deploy ${CF_SILVER} \
     --gen2 \
     --region=${REGION} \
+    --project=${PROJECT_PROCESS} \
     --runtime=python311 \
     --source=cf-silver-transformer/ \
     --entry-point=process_raw_to_silver \
     --service-account=${SA_COMPUTE} \
     --trigger-topic=${TOPIC_RAW} \
-    --set-env-vars="PROJECT_ID=${PROJECT_PROCESS},BQ_DATASET=${BQ_DS_SILVER},BQ_TABLE=${BQ_TBL_SILVER},PUB_SUB_TOPIC_OUT=${TOPIC_CURATED},FILTER_IPC_DESC=${FILTER_IPC_DESC},FILTER_IPC_REGION=${FILTER_IPC_REGION},FILTER_IPIM_APERTURA=${FILTER_IPIM_APERTURA}" \
+    --set-env-vars="BQ_PROJECT_ID=${PROJECT_LAKE},PROJECT_ID=${PROJECT_PROCESS},BQ_DATASET=${BQ_DS_SILVER},BQ_TABLE=${BQ_TBL_SILVER},PUB_SUB_TOPIC_OUT=${TOPIC_CURATED},FILTER_IPC_DESC=${FILTER_IPC_DESC},FILTER_IPC_REGION=${FILTER_IPC_REGION},FILTER_IPIM_APERTURA=${FILTER_IPIM_APERTURA}" \
     --memory=512MiB \
     --retry 
 

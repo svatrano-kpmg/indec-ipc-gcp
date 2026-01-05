@@ -48,6 +48,7 @@ gcloud scheduler jobs delete job-indec-ipim --location=${REGION} --quiet || echo
 
 gcloud scheduler jobs create http job-indec-ipim \
     --location=${REGION} \
+    --project=${PROJECT_INTAKE} \
     --schedule="5 10 1 * *" \
     --uri="${LAUNCHER_URL}" \
     --http-method=POST \

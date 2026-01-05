@@ -9,6 +9,7 @@ PROJECT_ID = os.environ.get("PROJECT_ID")
 BQ_DATASET = os.environ.get("BQ_DATASET") # ej: tgs_sandbox_curated
 BQ_TABLE = os.environ.get("BQ_TABLE") # ej: indec_ipc
 PUB_SUB_TOPIC_OUT = os.environ.get("PUB_SUB_TOPIC_OUT") # ej: curated.done
+BQ_PROJECT_ID = os.environ.get("BQ_PROJECT_ID")
 
 # Filtros (leídos desde variables de entorno)
 FILTER_IPC_DESC = os.environ.get("FILTER_IPC_DESC", "NIVEL GENERAL")
@@ -22,7 +23,7 @@ FILTER_IPIM_APERTURA = os.environ.get("FILTER_IPIM_APERTURA", "ng_nivel_general"
 
 @functions_framework.cloud_event
 def process_raw_to_silver(cloud_event):
-    bq_client = bigquery.Client(project=PROJECT_ID)
+    bq_client = bigquery.Client(project=BQ_PROJECT_ID)
     publisher = pubsub_v1.PublisherClient()
     topic_path_out = publisher.topic_path(PROJECT_ID, PUB_SUB_TOPIC_OUT)
     fs = gcsfs.GCSFileSystem(project=PROJECT_ID)
@@ -69,7 +70,7 @@ def process_raw_to_silver(cloud_event):
         max_mes = df_silver.loc[max_period_index, 'mes'].item()
         print(f"[{codigo}] Período máximo detectado en el archivo: {max_anio}-{max_mes}")
 
-        table_ref = f"{PROJECT_ID}.{BQ_DATASET}.{BQ_TABLE}"
+        table_ref = f"{BQ_PROJECT_ID}.{BQ_DATASET}.{BQ_TABLE}"
         job_config = bigquery.LoadJobConfig(
             schema=[
                 bigquery.SchemaField("periodo", "STRING"),

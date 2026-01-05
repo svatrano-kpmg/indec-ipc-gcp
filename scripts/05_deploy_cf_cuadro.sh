@@ -12,7 +12,7 @@ gcloud functions deploy ${CF_CUADRO} \
     --no-allow-unauthenticated \
     --trigger-topic=${TOPIC_GOLD} \
     --service-account=${SA_COMPUTE} \
-    --set-env-vars="PROJECT_ID=${PROJECT_ID},BQ_DATASET=${BQ_DS_GOLD},BQ_LOCATION=${REGION},PUB_SUB_TOPIC_OUT=${TOPIC_END}" \
+    --set-env-vars="BQ_PROJECT_ID=${PROJECT_LAKE},PROJECT_ID=${PROJECT_ID},BQ_DATASET=${BQ_DS_GOLD},BQ_LOCATION=${REGION},PUB_SUB_TOPIC_OUT=${TOPIC_END}" \
     --entry-point=check_and_run_cuadro_tarifario \
     --retry 
 

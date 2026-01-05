@@ -30,20 +30,29 @@ gcloud pubsub topics create ${DLQ_CURATED} || echo "Topic ${DLQ_CURATED} ya exis
 gcloud pubsub topics create ${DLQ_GOLD} || echo "Topic ${DLQ_GOLD} ya existe."
 
 echo "--- Asignando permisos a SA Compute (para que las CF/Run funcionen) ---"
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-  --member="serviceAccount:${SA_COMPUTE}" \
-  --role="roles/pubsub.publisher"
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-  --member="serviceAccount:${SA_COMPUTE}" \
-  --role="roles/bigquery.dataEditor"
-gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-  --member="serviceAccount:${SA_COMPUTE}" \
-  --role="roles/bigquery.jobUser"
+# ... Creación de SAs en sus respectivos proyectos ...
+
+# 1. Permisos para DATAPROC (SA_INTAKE_COMPUTE)
+# Escribir en Lakehouse (Storage)
 gcloud storage buckets add-iam-policy-binding gs://${GCS_RAW_BUCKET} \
-  --member="serviceAccount:${SA_COMPUTE}" \
-  --role="roles/storage.objectCreator"
-gcloud storage buckets add-iam-policy-binding gs://${GCS_RAW_BUCKET} \
-  --member="serviceAccount:${SA_COMPUTE}" \
-  --role="roles/storage.objectViewer"
+    --member="serviceAccount:${SA_INTAKE_COMPUTE}" \
+    --role="roles/storage.objectCreator"
+
+# Publicar en Process (Pub/Sub)
+gcloud projects add-iam-policy-binding ${PROJECT_PROCESS} \
+    --member="serviceAccount:${SA_INTAKE_COMPUTE}" \
+    --role="roles/pubsub.publisher"
+
+# 2. Permisos para FUNCIONES SILVER/GOLD (SA_PROCESS_COMPUTE)
+# Usar BigQuery en Lakehouse
+gcloud projects add-iam-policy-binding ${PROJECT_LAKE} \
+    --member="serviceAccount:${SA_PROCESS_COMPUTE}" \
+    --role="roles/bigquery.jobUser"
+
+gcloud projects add-iam-policy-binding ${PROJECT_LAKE} \
+    --member="serviceAccount:${SA_PROCESS_COMPUTE}" \
+    --role="roles/bigquery.dataEditor"
+
 
 echo "--- Bootstrap completado ---"
+
