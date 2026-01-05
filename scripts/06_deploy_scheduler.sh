@@ -12,6 +12,7 @@ echo "--- Obteniendo URL de la Cloud Function Launcher ---"
 # Para Cloud Functions Gen 2, la URL está en serviceConfig.uri
 LAUNCHER_URL=$(gcloud functions describe ${CF_DOWNLOADER_LAUNCHER} \
     --gen2 \
+    --project=${PROJECT_INTAKE} \
     --region=${REGION} \
     --format='value(serviceConfig.uri)')
 
@@ -26,10 +27,11 @@ echo "--- Creando Job de Scheduler (IPC) ---"
 # Usamos || true para que no falle si el job ya existe (intentará actualizarlo o fallará y seguiremos)
 # Pero 'jobs create' falla si existe. Mejor borrarlos primero o usar 'jobs update' si quisieras lógica idempotente compleja.
 # Aquí asumimos limpieza previa o borrado simple:
-gcloud scheduler jobs delete job-indec-ipc --location=${REGION} --quiet || echo "Job IPC no existía"
+gcloud scheduler jobs delete job-indec-ipc --location=${REGION} --project=${PROJECT_INTAKE} --quiet || echo "Job IPC no existía"
 
 gcloud scheduler jobs create http job-indec-ipc \
     --location=${REGION} \
+    --project=${PROJECT_INTAKE} \
     --schedule="5 10 1 * *" \
     --uri="${LAUNCHER_URL}" \
     --http-method=POST \

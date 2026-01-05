@@ -18,6 +18,7 @@ echo "--- Desplegando CF Gold: ${CF_GOLD} ---"
 gcloud functions deploy ${CF_GOLD} \
     --gen2 \
     --region=${REGION} \
+    --project=${PROJECT_PROCESS} \
     --runtime=python311 \
     --source=cf-gold-trigger/ \
     --no-allow-unauthenticated \

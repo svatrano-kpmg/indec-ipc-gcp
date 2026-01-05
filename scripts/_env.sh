@@ -24,7 +24,7 @@ export GCS_RAW_BUCKET="raw-zone-lakehouse"
 # export GCS_DATAPROC_BUCKET="${GCS_RAW_BUCKET}"
 
 # Pub/Sub Topics
-export TOPIC_RAW="projects/${PROJECT_INTAKE}/raw.done"
+export TOPIC_RAW="raw.done"
 export TOPIC_CURATED="curated.done"
 export TOPIC_GOLD="gold.done"
 export TOPIC_END="end.done"
