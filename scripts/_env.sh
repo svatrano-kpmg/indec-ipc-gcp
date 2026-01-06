@@ -35,6 +35,7 @@ export DLQ_CURATED="${TOPIC_CURATED}-dlq"
 export DLQ_GOLD="${TOPIC_GOLD}-dlq"
 
 # Dataproc
+export DATAPROC_PROJECT_ID="${PROJECT_INTAKE}"
 export DATAPROC_CLUSTER="sqlserver-cluster"
 export CF_DOWNLOADER_LAUNCHER="cf-indec-downloader-launcher"
 

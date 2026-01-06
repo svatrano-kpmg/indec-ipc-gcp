@@ -18,7 +18,6 @@ PUB_SUB_TOPIC_PROJECT = os.environ.get("PUB_SUB_TOPIC_PROJECT", "No definido")
 GCS_BUCKET = os.environ.get("GCS_BUCKET", "No definido")
 PUB_SUB_TOPIC = os.environ.get("PUB_SUB_TOPIC", "raw.done")
 
-
 @functions_framework.http
 def launch_dataproc_job(request):
     """Launcher HTTP (Gen2) que envía un PySpark Job al cluster de Dataproc."""
