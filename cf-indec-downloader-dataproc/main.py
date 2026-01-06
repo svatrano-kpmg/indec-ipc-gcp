@@ -101,8 +101,8 @@ def launch_dataproc_job(request):
             },
             # Labels solicitados
             "labels": {
-                "codigo": "CT",
-                "origen": "indec-launcher",
+                "codigo": "indec-launcher",
+                "origen": "ctrl-tarifario",
             },
         }
 
