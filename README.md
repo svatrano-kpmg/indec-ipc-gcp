@@ -181,6 +181,7 @@ El despliegue está 100% automatizado usando los scripts en el directorio `/scri
     gcloud scheduler jobs list
     gcloud pubsub topics list
     ```
+    
 5. **Configurar dead letter topics (DLQs):**
     1. Obtener la Suscripción del Cloud Function Gold
 El primer paso es listar las suscripciones creadas en el tópico curated.done y encontrar el ID asociado al cf-indec-gold-trigger.
