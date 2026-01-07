@@ -96,4 +96,5 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # Llamar a la función principal con los argumentos de línea de comandos
-    download_and_publish(args.codigo, args.url, args.folder, args.sp_gold, args.project_id, args.topic, args.bucket)
+#    download_and_publish(args.codigo, args.url, args.folder, args.sp_gold, args.project_id, args.topic, args.bucket)
+    download_and_publish(args)
