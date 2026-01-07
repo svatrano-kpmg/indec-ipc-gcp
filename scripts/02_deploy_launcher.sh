@@ -29,7 +29,7 @@ gcloud functions deploy ${CF_DOWNLOADER_LAUNCHER} \
     --project=${PROJECT_INTAKE} \
     --runtime=python311 \
     --source=cf-indec-downloader-dataproc/ \
-    --entry-point=launch_dataproc_job \
+    --entry-point=launch_dataproc_batch \
     --service-account=${SA_RUN} \
     --trigger-http \
     --no-allow-unauthenticated \

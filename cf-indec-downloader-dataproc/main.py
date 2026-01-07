@@ -83,8 +83,10 @@ def launch_dataproc_batch(request):
         # Definición del batch
         batch = {
             "labels": {
-                "codigo": "CT",
-                "origen": "indec-launcher",
+                "component" : "indec-launcher",
+                "source" : "indec",
+                "dominio" : "regulatorio",
+                "casouso" : "calculo-tarifario",
             },
             "pyspark_batch": {
                 "main_python_file_uri": SCRIPT_URI,
