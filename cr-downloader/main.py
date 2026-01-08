@@ -1,4 +1,3 @@
-
 import os
 import json
 import logging
@@ -10,7 +9,9 @@ import requests
 from google.cloud import storage
 from functions_framework import http
 
-logging.basicConfig(level=logging.INFO)
+# Configuración de logging
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+
 BA_TZ = ZoneInfo("America/Argentina/Buenos_Aires")
 
 
@@ -52,7 +53,8 @@ def run_indec_downloader(request):
     Espera JSON:
     {
       "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
-      "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/"
+      "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/",
+      "project_lake": "prj-data-lakehouse-dev"
     }
     """
     try:
@@ -65,11 +67,14 @@ def run_indec_downloader(request):
 
     url = data.get("url_descarga")
     gcs_bucket_val = data.get("GCS_BUCKET")
+    project_lake = data.get("project_lake")
 
     if not url:
         return (json.dumps({"error": "Falta 'url_descarga' en el payload"}), 400, {"Content-Type": "application/json"})
     if not gcs_bucket_val:
         return (json.dumps({"error": "Falta 'GCS_BUCKET' en el payload"}), 400, {"Content-Type": "application/json"})
+    if not project_lake:
+        return (json.dumps({"error": "Falta 'project_lake' en el payload"}), 400, {"Content-Type": "application/json"})
 
     try:
         bucket_name, base_prefix = parse_bucket_and_prefix(gcs_bucket_val)
@@ -82,26 +87,42 @@ def run_indec_downloader(request):
 
     file_name = filename_from_url(url)
 
+    # LOG: inicio del proceso
+    logging.info("=== INICIO DEL PROCESO DE DESCARGA Y CARGA EN GCS ===")
+    logging.info(f"Cloud Run ejecutándose en proyecto: {os.getenv('GOOGLE_CLOUD_PROJECT', 'desconocido')}")
+    logging.info(f"Proyecto destino (bucket): {project_lake}")
+    logging.info(f"URL a descargar: {url}")
+    logging.info(f"Archivo destino: {file_name}")
+    logging.info(f"Bucket destino: {bucket_name}")
+    logging.info(f"Prefijo destino: {prefix}")
+
     # Descarga
     try:
-        logging.info(f"Descargando: {url}")
+        logging.info("Iniciando descarga del archivo...")
         resp = requests.get(url, timeout=60)
         resp.raise_for_status()
         content = resp.content
         content_type = resp.headers.get("Content-Type", "application/octet-stream")
+        logging.info(f"Descarga exitosa. Tamaño: {len(content)} bytes. Content-Type: {content_type}")
     except Exception as e:
         logging.exception("Error descargando archivo")
         return (json.dumps({"error": f"Fallo al descargar: {str(e)}"}), 502, {"Content-Type": "application/json"})
 
-    # Subida a GCS (bucket en PROJECT_LAKE)
+    # Subida a GCS
     try:
-        storage_client = storage.Client()  # usa ADC de la SA del servicio de Cloud Run (PROJECT_INTAKE)
+        logging.info("Preparando subida a GCS...")
+        storage_client = storage.Client(project=project_lake)  # Forzamos proyecto destino
         bucket = storage_client.bucket(bucket_name)
         object_name = f"{prefix}/{file_name}" if prefix else file_name
-        blob = bucket.blob(object_name)
+        logging.info(f"Subiendo archivo a gs://{bucket_name}/{object_name} en proyecto {project_lake} ...")
 
+        blob = bucket.blob(object_name)
         blob.upload_from_string(content, content_type=content_type)
         blob.reload()
+
+        logging.info("Subida exitosa a GCS.")
+        logging.info(f"Objeto final: gs://{bucket_name}/{object_name}")
+        logging.info(f"Tamaño final: {blob.size} bytes | MD5: {blob.md5_hash}")
 
         result = {
             "bucket": bucket_name,
@@ -110,8 +131,10 @@ def run_indec_downloader(request):
             "md5_hash_b64": blob.md5_hash,
             "content_type": content_type,
             "download_url": f"gs://{bucket_name}/{object_name}",
+            "project_lake": project_lake
         }
-        logging.info(f"Subido a: gs://{bucket_name}/{object_name} ({blob.size} bytes)")
+
+        logging.info("=== PROCESO COMPLETADO CORRECTAMENTE ===")
         return (json.dumps(result), 200, {"Content-Type": "application/json"})
     except Exception as e:
         logging.exception("Error subiendo a GCS")

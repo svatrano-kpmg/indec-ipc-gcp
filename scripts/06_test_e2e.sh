@@ -65,6 +65,7 @@ curl -X POST "$SERVICE_URL" \
   -H "Content-Type: application/json" \
   -d '{
         "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
-        "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/"
+        "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/",
+        "project_lake": "prj-data-lakehouse-dev"
       }' \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)"
