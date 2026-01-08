@@ -3,14 +3,23 @@ source scripts/_env.sh
 set -euo pipefail
 
 echo "--- Desplegando Cloud Run (Downloader): ${CR_DOWNLOADER} ---"
-gcloud run deploy ${CR_DOWNLOADER} \
-  --source=cr-downloader/ \
-  --platform=managed \
-  --region=${REGION} \
+
+export REGION="us-central1"
+export SERVICE_NAME=${CR_DOWNLOADER}
+export IMAGE="gcr.io/${PROJECT_ID}/$SERVICE_NAME:1.0.0"
+
+# Build
+gcloud builds submit --tag $IMAGE --project ${PROJECT_ID}
+
+# Deploy en Cloud Run (auth-only)
+gcloud run deploy $SERVICE_NAME \
+  --image $IMAGE \
+  --region $REGION \
+  --platform managed \
+  --service-account $SA_RUN \
   --no-allow-unauthenticated \
-  --service-account=${SA_COMPUTE} \
-  --set-env-vars="PROJECT_ID=${PROJECT_ID},GCS_BUCKET=${GCS_RAW_BUCKET},PUB SUB_TOPIC=${TOPIC_RAW}"
-  
+  --project $PROJECT_ID
+
 echo "--- Dando permisos al Scheduler (OIDC) para invocar ${CR_DOWNLOADER} ---"
 # no lo pude ejecutar por problemas con las credenciales del gcloud 
 gcloud run services add-iam-policy-binding ${CR_DOWNLOADER} \

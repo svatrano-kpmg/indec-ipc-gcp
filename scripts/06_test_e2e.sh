@@ -42,7 +42,7 @@ EOF
 echo ">> E2E tests ejecutados."
 
 
-
+# Prueba de Cloud Function directa
 curl -m 70 -X POST "${LAUNCHER_URL}" \
 -H "Authorization: bearer $(gcloud auth print-identity-token)" \
 -H "Content-type: application/json" \
@@ -53,3 +53,18 @@ curl -m 70 -X POST "${LAUNCHER_URL}" \
   "nombre_procedure_gold": "ds_datos_tableros.spmerge_lkp_indices_ajustes",
   "cluster_name":"sqlserver-cluster"
 }'
+
+
+
+export SERVICE_URL=$(gcloud run services describe ${CR_DOWNLOADER} \
+  --region $REGION --format='value(status.url)' --project $PROJECT_ID)
+echo $SERVICE_URL
+
+# Prueba de Cloud run directa
+curl -X POST "$SERVICE_URL" \
+  -H "Content-Type: application/json" \
+  -d '{
+        "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
+        "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/"
+      }' \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)"
