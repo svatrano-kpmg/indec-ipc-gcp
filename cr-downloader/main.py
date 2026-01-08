@@ -1,4 +1,3 @@
-
 # main.py
 import os
 import json
@@ -117,12 +116,34 @@ def run_indec_downloader(request):
         logging.info("Iniciando descarga...")
         resp = requests.get(url, timeout=60)
         resp.raise_for_status()
-        content = resp.content
-        content_type = resp.headers.get("Content-Type", "application/octet-stream")
-        logging.info(f"Descarga exitosa. Tamaño: {len(content)} bytes. Content-Type: {content_type}")
+        raw_bytes = resp.content
+        src_content_type = resp.headers.get("Content-Type", "application/octet-stream")
+        logging.info(f"Descarga exitosa. Bytes: {len(raw_bytes)}. Content-Type origen: {src_content_type}")
     except Exception as e:
         logging.exception("Error descargando archivo")
         return (json.dumps({"error": f"Fallo al descargar: {str(e)}"}), 502, {"Content-Type": "application/json"})
+
+    # Normalización de encoding a UTF-8
+    try:
+        # Intento directo UTF-8
+        _text = raw_bytes.decode("utf-8")
+        normalized_bytes = _text.encode("utf-8")
+        applied_encoding = "utf-8"
+        logging.info("Archivo ya está en UTF-8. No se requiere conversión.")
+    except UnicodeDecodeError:
+        # Fallback a Latin-1 → UTF-8
+        logging.info("Detección: contenido no es UTF-8. Intentando Latin-1 → UTF-8...")
+        try:
+            _text = raw_bytes.decode("latin-1")
+            normalized_bytes = _text.encode("utf-8")
+            applied_encoding = "latin-1→utf-8"
+            logging.info("Conversión de encoding exitosa (latin-1 → utf-8).")
+        except Exception as e:
+            logging.exception("Fallo al convertir encoding a UTF-8")
+            return (json.dumps({"error": f"No se pudo normalizar encoding a UTF-8: {str(e)}"}), 500, {"Content-Type": "application/json"})
+
+    # Forzar content-type final como UTF-8
+    content_type = "text/csv; charset=utf-8"
 
     # Subida a GCS
     try:
@@ -134,11 +155,10 @@ def run_indec_downloader(request):
 
         logging.info(f"Subiendo a {gcs_uri} (proyecto {project_lake})...")
         blob = bucket.blob(object_name)
-        blob.upload_from_string(content, content_type=content_type)
+        blob.upload_from_string(normalized_bytes, content_type=content_type)
         blob.reload()
         logging.info("Subida exitosa.")
-        logging.info(f"Objeto final: {gcs_uri}")
-        logging.info(f"Tamaño final: {blob.size} bytes | MD5: {blob.md5_hash}")
+        logging.info(f"Objeto final: {gcs_uri} | Tamaño final: {blob.size} bytes | MD5: {blob.md5_hash} | Encoding aplicado: {applied_encoding}")
 
     except Exception as e:
         logging.exception("Error subiendo a GCS")
@@ -150,14 +170,15 @@ def run_indec_downloader(request):
         publisher = pubsub_v1.PublisherClient()
         topic_path = publisher.topic_path(pubsub_project_id, pubsub_topic_raw)
 
-        # Atributos: incluir TODO lo recibido + derivados necesarios para la silver
-        # (cf-silver-transformer espera: codigo_descarga, gcs_uri, source_url, nombre_procedure_gold) [1](https://onedrive-global.kpmg.com/personal/sergiovatrano_kpmg_com_ar/Documents/Microsoft%20Copilot%20Chat%20Files/main.py)
+        # Atributos: incluir todo lo recibido + derivados (cf-silver-transformer consume estos claves)
         attributes = {
+            "status": "success",
             "codigo_descarga": str(codigo_descarga),
             "nombre_procedure_gold": str(nombre_procedure_gold),
             "source_url": str(url),
             "gcs_uri": str(gcs_uri),
-            # Extras útiles y que pediste incluir (todo el payload + contexto y metadata)
+
+            # Payload original y metadatos útiles
             "GCS_BUCKET": str(gcs_bucket_val),
             "bucket": str(bucket_name),
             "object_name": str(object_name),
@@ -170,18 +191,18 @@ def run_indec_downloader(request):
             "run_project": str(run_project),
             "pubsub_project": str(pubsub_project_id),
             "timestamp_ba": datetime.now(BA_TZ).isoformat(timespec="seconds"),
+            "encoding_applied": applied_encoding,
         }
 
         future = publisher.publish(
             topic_path,
-            data=b"Raw download complete",
+            data=b"Raw download complete (UTF-8 normalized)",
             **attributes
         )
         message_id = future.result()
         logging.info(f"Mensaje publicado en {pubsub_topic_raw} (ID: {message_id})")
     except Exception as e:
         logging.exception("Error publicando en Pub/Sub raw.done")
-        # No cortar el flujo si la subida a GCS fue correcta; devolver 207 Multi-Status podría ser otra opción.
         return (json.dumps({"error": f"Subida OK pero fallo Pub/Sub: {str(e)}", "gcs_uri": gcs_uri}), 500, {"Content-Type": "application/json"})
 
     # Respuesta
@@ -192,13 +213,13 @@ def run_indec_downloader(request):
         "md5_hash_b64": blob.md5_hash,
         "content_type": content_type,
         "download_url": gcs_uri,
+        "encoding_applied": applied_encoding,
         "pubsub_topic": f"projects/{pubsub_project_id}/topics/{pubsub_topic_raw}",
         "message_id": message_id
     }
 
     logging.info("=== FIN: PROCESO COMPLETADO ===")
     return (json.dumps(result), 200, {"Content-Type": "application/json"})
-
 
 @http
 def healthz(request):

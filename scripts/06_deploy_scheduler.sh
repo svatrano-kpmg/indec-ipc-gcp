@@ -89,17 +89,15 @@ read -r -d '' PAYLOAD <<'JSON'
 }
 JSON
 
-gcloud scheduler jobs delete indec-ipc-cr-downloader --location=${REGION} --quiet || echo "Job IPIM no existía"
+gcloud scheduler jobs delete indec-ipc-cr-downloader --location=${REGION} --quiet || echo "Job IPC no existía"
 
 gcloud scheduler jobs create http indec-ipc-cr-downloader \
-  --project $PROJECT_INTAKE \
-  --location $REGION \
-  --schedule "$SCHEDULE" \
-  --time-zone "America/Argentina/Buenos_Aires" \
-  --uri "$SERVICE_URL" \
-  --http-method POST \
-  --headers "Content-Type=application/json" \
-  --oidc-service-account-email "$SA_RUN" \
-  --oidc-token-audience "$SERVICE_URL" \
-  --body-content "$PAYLOAD"
-
+    --location=${REGION} \
+    --project=${PROJECT_INTAKE} \
+    --schedule="${SCHEDULE}" \
+    --uri="${SERVICE_URL}" \
+    --time-zone "America/Argentina/Buenos_Aires" \
+    --http-method=POST \
+    --oidc-service-account-email=${SA_SCHEDULER} \
+    --headers="Content-Type=application/json" \
+    --message-body="$PAYLOAD"

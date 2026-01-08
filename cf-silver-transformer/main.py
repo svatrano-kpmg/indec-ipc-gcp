@@ -104,7 +104,7 @@ def process_raw_to_silver(cloud_event):
 
     except Exception as e:
         print(f"Error en 'process_raw_to_silver' para {gcs_uri}: {e}")
-        raise
+        return
 
 def transform_ipc(df):
     # 1. Limpieza de nombres de columnas (ya lo tenía)

@@ -60,18 +60,34 @@ curl -m 70 -X POST "${LAUNCHER_URL}" \
 
 
 
-export SERVICE_URL=$(gcloud run services describe ${CR_DOWNLOADER} \
-  --region $REGION --format='value(status.url)' --project $PROJECT_ID)
-echo $SERVICE_URL
+# Invocar manualmente (intake)
+SERVICE_URL=$(gcloud run services describe $SERVICE_NAME --region $REGION --project $PROJECT_INTAKE --format='value(status.url)')
 
-# Prueba de Cloud run directa
 curl -X POST "$SERVICE_URL" \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $(gcloud auth print-identity-token)" \
   -d '{
         "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
         "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/",
-        "project_lake": "prj-data-lakehouse-dev"
-      }' \
-  -H "Authorization: Bearer $(gcloud auth print-identity-token)"
+        "project_lake": "prj-data-lakehouse-dev",
+        "codigo_descarga": "IPC",
+        "nombre_procedure_gold": "ds_datos_tableros.spmerge_lkp_indices_ajustes"
+      }'
+
+
+# si da error una funcion al ingestar
+
+gcloud pubsub subscriptions pull SUB_NAME --limit=10 --auto-ack --project prj-data-process-dev
+
+
+
+# Crear DLQ
+gcloud pubsub topics create raw.deadletter --project prj-data-process-dev || true
+
+# Actualizar la suscripción (o crearla) con DLQ y límite de intentos
+gcloud pubsub subscriptions update SUB_NAME \
+  --dead-letter-topic=projects/prj-data-process-dev/topics/raw.deadletter \
+  --max-delivery-attempts=5 \
+  --project prj-data-process-dev
 
 
