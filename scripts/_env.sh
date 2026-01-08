@@ -41,9 +41,9 @@ export CF_DOWNLOADER_LAUNCHER="cf-indec-downloader-launcher"
 
 # BigQuery
 export BQ_PROJECT_ID="${PROJECT_LAKE}"
-export BQ_DS_SILVER="tgs_sandbox_curated"
+export BQ_DS_SILVER="DS_ASUNTOS_REGULATORIOS_SANDBOX"
 export BQ_TBL_SILVER="indec_ipc"
-export BQ_DS_GOLD="ds_datos_tableros"
+export BQ_DS_GOLD="DS_ASUNTOS_REGULATORIOS_SANDBOX"
 
 # Cloud Run / Functions (Nuevos nombres)
 export CR_DOWNLOADER="cr-indec-downloader"
