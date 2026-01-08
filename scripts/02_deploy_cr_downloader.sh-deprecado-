@@ -6,7 +6,7 @@ echo "--- Desplegando Cloud Run (Downloader): ${CR_DOWNLOADER} ---"
 
 export SERVICE_NAME=${CR_DOWNLOADER}
 export AR_REPO="cloud-run-source-deploy"
-export IMAGE="us-central1-docker.pkg.dev/$PROJECT_ID/$AR_REPO/$SERVICE_NAME:1.1.0"
+export IMAGE="us-central1-docker.pkg.dev/$PROJECT_ID/$AR_REPO/$SERVICE_NAME:1.1.1"
 
 # Build
 

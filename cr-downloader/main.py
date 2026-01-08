@@ -123,24 +123,16 @@ def run_indec_downloader(request):
         logging.exception("Error descargando archivo")
         return (json.dumps({"error": f"Fallo al descargar: {str(e)}"}), 502, {"Content-Type": "application/json"})
 
-    # Normalización de encoding a UTF-8
+    # Normalización de encoding a UTF-8 (simplificado)
     try:
-        # Intento directo UTF-8
-        _text = raw_bytes.decode("utf-8")
-        normalized_bytes = _text.encode("utf-8")
+        normalized_bytes = raw_bytes.decode("utf-8").encode("utf-8")
         applied_encoding = "utf-8"
-        logging.info("Archivo ya está en UTF-8. No se requiere conversión.")
+        logging.info("Archivo decodificado como UTF-8 correctamente.")
     except UnicodeDecodeError:
-        # Fallback a Latin-1 → UTF-8
-        logging.info("Detección: contenido no es UTF-8. Intentando Latin-1 → UTF-8...")
-        try:
-            _text = raw_bytes.decode("latin-1")
-            normalized_bytes = _text.encode("utf-8")
-            applied_encoding = "latin-1→utf-8"
-            logging.info("Conversión de encoding exitosa (latin-1 → utf-8).")
-        except Exception as e:
-            logging.exception("Fallo al convertir encoding a UTF-8")
-            return (json.dumps({"error": f"No se pudo normalizar encoding a UTF-8: {str(e)}"}), 500, {"Content-Type": "application/json"})
+        logging.info("Contenido no es UTF-8. Intentando Latin-1 → UTF-8...")
+        normalized_bytes = raw_bytes.decode("latin-1").encode("utf-8")
+        applied_encoding = "latin-1→utf-8"
+        logging.info("Conversión exitosa (Latin-1 → UTF-8).")
 
     # Forzar content-type final como UTF-8
     content_type = "text/csv; charset=utf-8"
