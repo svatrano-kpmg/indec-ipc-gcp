@@ -4,9 +4,11 @@ set -euo pipefail
 
 echo "--- Desplegando Cloud Run (Downloader): ${CR_DOWNLOADER} ---"
 
-export REGION="us-central1"
 export SERVICE_NAME=${CR_DOWNLOADER}
-export IMAGE="gcr.io/${PROJECT_ID}/$SERVICE_NAME:1.0.0"
+export AR_REPO="cloud-run-source-deploy"
+export IMAGE="us-central1-docker.pkg.dev/$PROJECT_ID/$AR_REPO/$SERVICE_NAME:1.0.0"
+
+
 
 # Build
 gcloud builds submit --tag $IMAGE --project ${PROJECT_ID}

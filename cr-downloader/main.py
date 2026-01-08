@@ -1,6 +1,5 @@
 
 import os
-import io
 import json
 import logging
 from datetime import datetime
@@ -50,20 +49,15 @@ def filename_from_url(url: str, default_name: str = "downloaded_file.csv"):
 @http
 def run_indec_downloader(request):
     """
-    Handler HTTP para Cloud Run via functions_framework.
-
     Espera JSON:
     {
       "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
       "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/"
     }
-
-    Respuesta JSON con metadata del objeto subido.
     """
     try:
         data = request.get_json(silent=True) or {}
     except Exception:
-        # fallback para payload como texto
         try:
             data = json.loads(request.data.decode("utf-8"))
         except Exception:
@@ -82,7 +76,7 @@ def run_indec_downloader(request):
     except ValueError as e:
         return (json.dumps({"error": str(e)}), 400, {"Content-Type": "application/json"})
 
-    # Carpeta por día: YYYYMMDD (timezone BA)
+    # Carpeta por día (BA): YYYYMMDD
     today_str = datetime.now(BA_TZ).strftime("%Y%m%d")
     prefix = "/".join([p for p in [base_prefix, today_str] if p])
 
@@ -99,9 +93,9 @@ def run_indec_downloader(request):
         logging.exception("Error descargando archivo")
         return (json.dumps({"error": f"Fallo al descargar: {str(e)}"}), 502, {"Content-Type": "application/json"})
 
-    # Subida a GCS
+    # Subida a GCS (bucket en PROJECT_LAKE)
     try:
-        storage_client = storage.Client()
+        storage_client = storage.Client()  # usa ADC de la SA del servicio de Cloud Run (PROJECT_INTAKE)
         bucket = storage_client.bucket(bucket_name)
         object_name = f"{prefix}/{file_name}" if prefix else file_name
         blob = bucket.blob(object_name)
@@ -118,7 +112,6 @@ def run_indec_downloader(request):
             "download_url": f"gs://{bucket_name}/{object_name}",
         }
         logging.info(f"Subido a: gs://{bucket_name}/{object_name} ({blob.size} bytes)")
-
         return (json.dumps(result), 200, {"Content-Type": "application/json"})
     except Exception as e:
         logging.exception("Error subiendo a GCS")
