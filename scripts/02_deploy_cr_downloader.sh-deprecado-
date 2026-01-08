@@ -6,12 +6,12 @@ echo "--- Desplegando Cloud Run (Downloader): ${CR_DOWNLOADER} ---"
 
 export SERVICE_NAME=${CR_DOWNLOADER}
 export AR_REPO="cloud-run-source-deploy"
-export IMAGE="us-central1-docker.pkg.dev/$PROJECT_ID/$AR_REPO/$SERVICE_NAME:1.0.1"
-
-
+export IMAGE="us-central1-docker.pkg.dev/$PROJECT_ID/$AR_REPO/$SERVICE_NAME:1.1.0"
 
 # Build
-gcloud builds submit --tag $IMAGE --project ${PROJECT_ID}
+
+gcloud auth configure-docker $REGION-docker.pkg.dev --project $PROJECT_INTAKE
+gcloud builds submit --tag $IMAGE --project ${PROJECT_INTAKE}
 
 # Deploy en Cloud Run (auth-only)
 gcloud run deploy $SERVICE_NAME \
@@ -20,7 +20,9 @@ gcloud run deploy $SERVICE_NAME \
   --platform managed \
   --service-account $SA_RUN \
   --no-allow-unauthenticated \
-  --project $PROJECT_ID
+  --set-env-vars PUBSUB_PROJECT_ID=${PROJECT_PROCESS},PUBSUB_TOPIC_RAW=${TOPIC_RAW} \
+  --project $PROJECT_INTAKE
+
 
 echo "--- Dando permisos al Scheduler (OIDC) para invocar ${CR_DOWNLOADER} ---"
 # no lo pude ejecutar por problemas con las credenciales del gcloud 

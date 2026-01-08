@@ -42,6 +42,10 @@ EOF
 echo ">> E2E tests ejecutados."
 
 
+
+
+
+
 # Prueba de Cloud Function directa
 curl -m 70 -X POST "${LAUNCHER_URL}" \
 -H "Authorization: bearer $(gcloud auth print-identity-token)" \
@@ -69,3 +73,5 @@ curl -X POST "$SERVICE_URL" \
         "project_lake": "prj-data-lakehouse-dev"
       }' \
   -H "Authorization: Bearer $(gcloud auth print-identity-token)"
+
+

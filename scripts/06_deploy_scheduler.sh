@@ -65,3 +65,41 @@ gcloud scheduler jobs create http job-indec-ipim \
     }'
 
 echo "--- Despliegue de Scheduler completado ---"
+
+
+
+
+echo "--- Creando Job de Scheduler para cloud run(IPC) ---"
+# URL del servicio (si ya está desplegado)
+export SERVICE_URL=$(gcloud run services describe $CR_DOWNLOADER \
+  --region $REGION --project $PROJECT_INTAKE \
+  --format='value(status.url)')
+
+# Lunes 10:05 AM (zona Argentina)
+export SCHEDULE="5 10 * * 1"
+
+# Payload con los TAGS adicionales
+read -r -d '' PAYLOAD <<'JSON'
+{
+  "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv",
+  "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/",
+  "project_lake": "prj-data-lakehouse-dev",
+  "codigo_descarga": "IPC",
+  "nombre_procedure_gold": "ds_datos_tableros.sp_merge_lkp_indices_ajuste"
+}
+JSON
+
+gcloud scheduler jobs delete indec-ipc-cr-downloader --location=${REGION} --quiet || echo "Job IPIM no existía"
+
+gcloud scheduler jobs create http indec-ipc-cr-downloader \
+  --project $PROJECT_INTAKE \
+  --location $REGION \
+  --schedule "$SCHEDULE" \
+  --time-zone "America/Argentina/Buenos_Aires" \
+  --uri "$SERVICE_URL" \
+  --http-method POST \
+  --headers "Content-Type=application/json" \
+  --oidc-service-account-email "$SA_RUN" \
+  --oidc-token-audience "$SERVICE_URL" \
+  --body-content "$PAYLOAD"
+
