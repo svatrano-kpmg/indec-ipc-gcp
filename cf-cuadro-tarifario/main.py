@@ -61,7 +61,7 @@ def check_and_run_cuadro_tarifario(cloud_event):
             sp_full_name = f"`{BQ_PROJECT_ID}.{BQ_DATASET}.{sp}`"
             print(f"Ejecutando SP: {sp_full_name}...")
             # Asumimos que los SPs no reciben parámetros.
-            sql_call = f"CALL {sp_full_name}();" 
+            sql_call = f"CALL {sp_full_name}({mes},{anio});" 
             job = bq_client.query(sql_call, location=BQ_LOCATION)
             job.result()
             print(f"SP {sp} completado. Job ID: {job.job_id}")
