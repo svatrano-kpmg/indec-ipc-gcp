@@ -54,7 +54,7 @@ curl -m 70 -X POST "${LAUNCHER_URL}" \
   "codigo_descarga": "IPC",
   "url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/serie_ipc_divisiones.csv" ,
   "nombre_carpeta_gcs": "ipc",
-  "nombre_procedure_gold": "ds_datos_tableros.spmerge_lkp_indices_ajustes",
+  "nombre_procedure_gold": "DS_ASUNTOS_REGULATORIOS_SANDBOX.sp_merge_lkp_indices_ajustes",
   "cluster_name":"sqlserver-cluster"
 }'
 
@@ -71,7 +71,7 @@ curl -X POST "$SERVICE_URL" \
         "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/",
         "project_lake": "prj-data-lakehouse-dev",
         "codigo_descarga": "IPC",
-        "nombre_procedure_gold": "ds_datos_tableros.spmerge_lkp_indices_ajustes"
+        "nombre_procedure_gold": "DS_ASUNTOS_REGULATORIOS_SANDBOX.sp_merge_lkp_indices_ajustes"
       }'
 
 
@@ -91,3 +91,16 @@ gcloud pubsub subscriptions update SUB_NAME \
   --project prj-data-process-dev
 
 
+
+
+export CODIGO="IPC"
+export SP_GOLD="DS_ASUNTOS_REGULATORIOS_SANDBOX.sp_merge_lkp_indices_ajustes"
+export GCS_URI="gs://raw-zone-lakehouse/indec/ipc/20260108/serie_ipc_divisiones.csv"
+export N_ROWS="108"
+export MAX_ANIO="2025"
+export MAX_MES="11"
+
+gcloud pubsub topics publish $TOPIC_OUT \
+  --project $PROJECT_PROCESS \
+  --message="Silver load complete (test)" \
+  --attribute=codigo_descarga="$CODIGO",nombre_procedure_gold="$SP_GOLD",gcs_uri="$GCS_URI",n_rows="$N_ROWS",max_anio="$MAX_ANIO",max_mes="$MAX_MES"

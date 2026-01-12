@@ -1,8 +1,8 @@
-CREATE OR REPLACE PROCEDURE `tgs-sandbox.ds_datos_tableros.sp_merge_lkp_indices_ajuste`(
+CREATE OR REPLACE PROCEDURE `prj-data-lakehouse-dev.DS_ASUNTOS_REGULATORIOS_SANDBOX.sp_merge_lkp_indices_ajuste`(
     p_codigo_descarga STRING
 )
 BEGIN
-  MERGE `tgs-sandbox.ds_datos_tableros.lkp_indices_ajuste` AS T
+  MERGE `prj-data-lakehouse-dev.DS_ASUNTOS_REGULATORIOS_SANDBOX.lkp_indices_ajuste` AS T
   USING (
     SELECT
       CASE p_codigo_descarga
@@ -14,7 +14,7 @@ BEGIN
       mes,
       AVG(valor) AS valor,
       MAX(load_ts) AS load_ts
-    FROM `tgs-sandbox.tgs_sandbox_curated.indec_ipc`
+    FROM `prj-data-lakehouse-dev.DS_ASUNTOS_REGULATORIOS_SANDBOX.indec_ipc`
     WHERE archivo = p_codigo_descarga -- Filtra SÓLO este archivo
       AND anio IS NOT NULL AND mes IS NOT NULL AND valor IS NOT NULL
     GROUP BY 1, 2, 3

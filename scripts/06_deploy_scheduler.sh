@@ -35,6 +35,7 @@ gcloud scheduler jobs create http job-indec-ipc \
     --schedule="5 10 1 * *" \
     --uri="${LAUNCHER_URL}" \
     --http-method=POST \
+    --time-zone "America/Argentina/Buenos_Aires" \
     --oidc-service-account-email=${SA_SCHEDULER} \
     --headers="Content-Type=application/json" \
     --message-body='{
@@ -54,6 +55,7 @@ gcloud scheduler jobs create http job-indec-ipim \
     --schedule="5 10 1 * *" \
     --uri="${LAUNCHER_URL}" \
     --http-method=POST \
+    --time-zone "America/Argentina/Buenos_Aires" \
     --oidc-service-account-email=${SA_SCHEDULER} \
     --headers="Content-Type=application/json" \
     --message-body='{
@@ -85,13 +87,50 @@ read -r -d '' PAYLOAD <<'JSON'
   "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/",
   "project_lake": "prj-data-lakehouse-dev",
   "codigo_descarga": "IPC",
-  "nombre_procedure_gold": "ds_datos_tableros.sp_merge_lkp_indices_ajuste"
+  "nombre_procedure_gold": "DS_ASUNTOS_REGULATORIOS_SANDBOX.sp_merge_lkp_indices_ajuste"
 }
 JSON
 
 gcloud scheduler jobs delete indec-ipc-cr-downloader --location=${REGION} --quiet || echo "Job IPC no existía"
 
 gcloud scheduler jobs create http indec-ipc-cr-downloader \
+    --location=${REGION} \
+    --project=${PROJECT_INTAKE} \
+    --schedule="${SCHEDULE}" \
+    --uri="${SERVICE_URL}" \
+    --time-zone "America/Argentina/Buenos_Aires" \
+    --http-method=POST \
+    --oidc-service-account-email=${SA_SCHEDULER} \
+    --headers="Content-Type=application/json" \
+    --message-body="$PAYLOAD"
+
+
+
+
+
+echo "--- Creando Job de Scheduler para cloud run(IPIM) ---"
+# URL del servicio (si ya está desplegado)
+export SERVICE_URL=$(gcloud run services describe $CR_DOWNLOADER \
+  --region $REGION --project $PROJECT_INTAKE \
+  --format='value(status.url)')
+
+# Lunes 10:05 AM (zona Argentina)
+export SCHEDULE="10 10 * * 1"
+
+# Payload con los TAGS adicionales
+read -r -d '' PAYLOAD <<'JSON'
+{
+"codigo_descarga": "IPIM",
+"url_descarga": "https://www.indec.gob.ar/ftp/cuadros/economia/indice_ipim.csv",
+"GCS_BUCKET": "raw-zone-lakehouse/indec/ipim/",
+"project_lake": "prj-data-lakehouse-dev",
+"nombre_procedure_gold": "DS_ASUNTOS_REGULATORIOS_SANDBOX.sp_merge_lkp_indices_ajuste"
+}
+JSON
+
+gcloud scheduler jobs delete indec-ipim-cr-downloader --location=${REGION} --quiet || echo "Job IPC no existía"
+
+gcloud scheduler jobs create http indec-ipim-cr-downloader \
     --location=${REGION} \
     --project=${PROJECT_INTAKE} \
     --schedule="${SCHEDULE}" \

@@ -22,9 +22,11 @@ TABLES_TO_CHECK = {
 }
 # SPs a ejecutar en orden
 SPS_TO_RUN = [
-    'sp_merge_ft_ajustes',
-    'sp_merge_ft_marcha_calculo',
-    'sp_merge_ft_cuadro_tarifario'
+    'sp_calcular_ft_ajustes',
+    'sp_marcha_calculo',
+    'sp_calcular_ft_cuadro_tarifario',
+    'sp_calculo_ft_tarifa',
+    'sp_calculo_ft_facturado'
 ]
 
 @functions_framework.cloud_event

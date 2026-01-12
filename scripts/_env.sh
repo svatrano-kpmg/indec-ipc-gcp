@@ -39,7 +39,7 @@ export DATAPROC_PROJECT_ID="${PROJECT_INTAKE}"
 export DATAPROC_CLUSTER="sqlserver-cluster"
 export CF_DOWNLOADER_LAUNCHER="cf-indec-downloader-launcher"
 
-# BigQuery
+# BigQuery 
 export BQ_PROJECT_ID="${PROJECT_LAKE}"
 export BQ_DS_SILVER="DS_ASUNTOS_REGULATORIOS_SANDBOX"
 export BQ_TBL_SILVER="indec_ipc"
