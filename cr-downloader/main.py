@@ -58,8 +58,10 @@ def run_indec_downloader(request):
       "GCS_BUCKET": "raw-zone-lakehouse/indec/ipc/",
       "project_lake": "prj-data-lakehouse-dev",
       "codigo_descarga": "IPC",
-      "nombre_procedure_gold": "xxxx"
-    }
+      "nombre_procedure_gold": "xxxx",
+      "pubsub_project_id" : "prj-data-process-dev",      
+      "pubsub_topic_raw" : "raw.done"
+
     Env vars requeridas en Cloud Run:
       - PUBSUB_PROJECT_ID: proyecto de Pub/Sub (ej: prj-data-process-dev)
       - PUBSUB_TOPIC_RAW: nombre del tópico raw (ej: raw.done)
@@ -78,9 +80,11 @@ def run_indec_downloader(request):
     project_lake = data.get("project_lake")
     codigo_descarga = data.get("codigo_descarga")
     nombre_procedure_gold = data.get("nombre_procedure_gold")
+    pubsub_project_id = data.getenv("pubsub_project_id")
+    pubsub_topic_raw = data.getenv("pubsub_topic_raw", "raw.done")
 
     # Validaciones
-    missing = [k for k in ["url_descarga", "GCS_BUCKET", "project_lake", "codigo_descarga", "nombre_procedure_gold"] if not data.get(k)]
+    missing = [k for k in ["url_descarga", "GCS_BUCKET", "project_lake", "codigo_descarga", "nombre_procedure_gold","pubsub_project_id","pubsub_topic_raw" ] if not data.get(k)]
     if missing:
         return (json.dumps({"error": f"Faltan campos en el payload: {', '.join(missing)}"}), 400, {"Content-Type": "application/json"})
 
@@ -90,8 +94,8 @@ def run_indec_downloader(request):
         return (json.dumps({"error": str(e)}), 400, {"Content-Type": "application/json"})
 
     run_project = os.getenv("GOOGLE_CLOUD_PROJECT", "desconocido")
-    pubsub_project_id = os.getenv("PUBSUB_PROJECT_ID")
-    pubsub_topic_raw = os.getenv("PUBSUB_TOPIC_RAW", "raw.done")
+#    pubsub_project_id = os.getenv("PUBSUB_PROJECT_ID")
+#    pubsub_topic_raw = os.getenv("PUBSUB_TOPIC_RAW", "raw.done")
 
     if not pubsub_project_id:
         return (json.dumps({"error": "Falta env var 'PUBSUB_PROJECT_ID' en Cloud Run"}), 500, {"Content-Type": "application/json"})
