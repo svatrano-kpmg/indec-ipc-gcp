@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import requests
+import certifi
 from google.cloud import storage
 from google.cloud import pubsub_v1
 from functions_framework import http
@@ -116,7 +117,8 @@ def run_indec_downloader(request):
     # Descarga
     try:
         logging.info("Iniciando descarga...")
-        resp = requests.get(url, timeout=60)
+        # Usar bundle de certifi para validar SSL correctamente
+        resp = requests.get(url, timeout=60, verify=certifi.where())  # <-- CAMBIO
         resp.raise_for_status()
         raw_bytes = resp.content
         src_content_type = resp.headers.get("Content-Type", "application/octet-stream")
@@ -125,17 +127,45 @@ def run_indec_downloader(request):
         logging.exception("Error descargando archivo")
         return (json.dumps({"error": f"Fallo al descargar: {str(e)}"}), 502, {"Content-Type": "application/json"})
 
-    # Normalización de encoding a UTF-8 (simplificado)
-    try:
-        normalized_bytes = raw_bytes.decode("utf-8").encode("utf-8")
-        applied_encoding = "utf-8"
-        logging.info("Archivo decodificado como UTF-8 correctamente.")
-    except UnicodeDecodeError:
-        logging.info("Contenido no es UTF-8. Intentando Latin-1 → UTF-8...")
-        normalized_bytes = raw_bytes.decode("latin-1").encode("utf-8")
-        applied_encoding = "latin-1→utf-8"
-        logging.info("Conversión exitosa (Latin-1 → UTF-8).")
+    # Determinar si es JSON (no normalizar como CSV)
+    is_json = "application/json" in (src_content_type or "").lower() or (url.lower().endswith(".json"))
 
+    if is_json:
+        # Normalizar JSON a UTF-8 sin tocar contenido (solo aseguramos bytes UTF-8)
+        try:
+            # Si son bytes UTF-8 válidos, esto no cambia nada; si vinieran en latin-1 (no usual para JSON),
+            # intentamos decode->encode con fallback básico.
+            try:
+                text = raw_bytes.decode("utf-8")
+                used_encoding = "utf-8"
+            except UnicodeDecodeError:
+                text = raw_bytes.decode("latin-1")
+                used_encoding = "latin-1"
+            normalized_bytes = text.encode("utf-8")
+            applied_encoding = f"{used_encoding}→utf-8"
+        except Exception as e:
+            logging.exception("Error normalizando JSON a UTF-8")
+            return (json.dumps({"error": f"Fallo al normalizar JSON: {str(e)}"}), 500, {"Content-Type": "application/json"})
+        content_type = "application/json; charset=utf-8"
+
+        # Si el nombre no tiene extensión, forzamos .json
+        if not file_name.lower().endswith(".json"):
+            # Si la URL del BCRA termina en /Cotizaciones, dame un nombre lógico
+            base = os.path.splitext(file_name)[0] or "Cotizaciones"
+            file_name = f"{base}.json"
+
+    else:
+        # Normalización de encoding a UTF-8 (simplificado)
+        try:
+            normalized_bytes = raw_bytes.decode("utf-8").encode("utf-8")
+            applied_encoding = "utf-8"
+            logging.info("Archivo decodificado como UTF-8 correctamente.")
+        except UnicodeDecodeError:
+            logging.info("Contenido no es UTF-8. Intentando Latin-1 → UTF-8...")
+            normalized_bytes = raw_bytes.decode("latin-1").encode("utf-8")
+            applied_encoding = "latin-1→utf-8"
+            logging.info("Conversión exitosa (Latin-1 → UTF-8).")
+    
     # Forzar content-type final como UTF-8
     content_type = "text/csv; charset=utf-8"
 
@@ -152,8 +182,7 @@ def run_indec_downloader(request):
         blob.upload_from_string(normalized_bytes, content_type=content_type)
         blob.reload()
         logging.info("Subida exitosa.")
-        logging.info(f"Objeto final: {gcs_uri} | Tamaño final: {blob.size} bytes | MD5: {blob.md5_hash} | Encoding aplicado: {applied_encoding}")
-
+        logging.info(f"Objeto final: {gcs_uri} | Tamaño: {blob.size} bytes | MD5: {blob.md5_hash} | Encoding aplicado: {applied_encoding}")
     except Exception as e:
         logging.exception("Error subiendo a GCS")
         return (json.dumps({"error": f"Fallo al subir a GCS: {str(e)}"}), 500, {"Content-Type": "application/json"})

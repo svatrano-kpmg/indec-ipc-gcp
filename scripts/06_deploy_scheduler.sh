@@ -95,7 +95,7 @@ read -r -d '' PAYLOAD <<'JSON'
 }
 JSON
 
-gcloud scheduler jobs delete indec-ipc-cr-downloader --location=${REGION} --quiet || echo "Job IPC no existía"
+gcloud scheduler jobs delete indec-ipc-cr-downloader --location=${REGION} --quiet --project $PROJECT_INTAKE || echo "Job IPC no existía"
 
 gcloud scheduler jobs create http indec-ipc-cr-downloader \
     --location=${REGION} \
@@ -131,7 +131,7 @@ read -r -d '' PAYLOAD <<'JSON'
 }
 JSON
 
-gcloud scheduler jobs delete indec-ipim-cr-downloader --location=${REGION} --quiet || echo "Job IPC no existía"
+gcloud scheduler jobs delete indec-ipim-cr-downloader --location=${REGION} --project $PROJECT_INTAKE --quiet || echo "Job IPC no existía"
 
 gcloud scheduler jobs create http indec-ipim-cr-downloader \
     --location=${REGION} \

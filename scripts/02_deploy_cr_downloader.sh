@@ -6,7 +6,7 @@ echo "--- Desplegando Cloud Run (Downloader): ${CR_DOWNLOADER} ---"
 
 export SERVICE_NAME=${CR_DOWNLOADER}
 export AR_REPO="cloud-run-source-deploy"
-export IMAGE="us-central1-docker.pkg.dev/$PROJECT_ID/$AR_REPO/$SERVICE_NAME:1.1.2"
+export IMAGE="us-central1-docker.pkg.dev/$PROJECT_ID/$AR_REPO/$SERVICE_NAME:1.1.3"
 
 # Build
 
@@ -20,8 +20,9 @@ gcloud run deploy $SERVICE_NAME \
   --platform managed \
   --service-account $SA_RUN \
   --no-allow-unauthenticated \
-  --set-env-vars PUBSUB_PROJECT_ID=${PROJECT_PROCESS},PUBSUB_TOPIC_RAW=${TOPIC_RAW} \
   --project $PROJECT_INTAKE
+# Se quita porque ahora se reciben en el payload
+#  --set-env-vars PUBSUB_PROJECT_ID=${PROJECT_PROCESS},PUBSUB_TOPIC_RAW=${TOPIC_RAW} \
 
 
 echo "--- Dando permisos al Scheduler (OIDC) para invocar ${CR_DOWNLOADER} ---"
