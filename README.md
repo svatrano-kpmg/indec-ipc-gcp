@@ -247,7 +247,7 @@ El pipeline está diseñado para ser completamente event-driven, utilizando Pub/
 El SP se pasa en el mensaje para flexibilidad futura, pero el SP real ejecutado está unificado porque el diseño del pipeline utiliza el patrón de Manejador Unificado (Unified Handler).
 
 1. El SP es Fijo (Unificado) por Diseño
-El nombre del SP que se invoca en esta etapa es ds_datos_tableros.sp_merge_lkp_indices_ajuste. Este nombre está "hardcodeado" en la lógica del negocio porque:
+El nombre del SP que se invoca en esta etapa es ds_datos_tableros.sp_merge_lkp_indices_ajuste. Este nombre está "hardcodeado" en la lógica del negocio porque: 
 
 Lógica Unificada: El propósito de esta etapa Gold es siempre el mismo para cualquier índice (IPC o IPIM): tomar los datos de la capa Silver y hacer un MERGE en la tabla maestra lkp_indices_ajuste.
 
