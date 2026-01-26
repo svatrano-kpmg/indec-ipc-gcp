@@ -10,6 +10,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && update-ca-certificates \ 
  && rm -rf /var/lib/apt/lists/*
 
+# Copio los certificados
+COPY certificados/*.crt /usr/local/share//ca-certificates/
+
+# Los registro
+RUN update-ca-certificates
+
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
