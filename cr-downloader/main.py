@@ -7,7 +7,6 @@ from urllib.parse import urlparse
 from zoneinfo import ZoneInfo
 
 import requests
-import certifi
 from google.cloud import storage
 from google.cloud import pubsub_v1
 from functions_framework import http
@@ -117,8 +116,8 @@ def run_indec_downloader(request):
     # Descarga
     try:
         logging.info("Iniciando descarga...")
-        # Usar bundle de certifi para validar SSL correctamente
-        resp = requests.get(url, timeout=60, verify=certifi.where())  # <-- CAMBIO
+        
+        resp = requests.get(url, timeout=60) 
         resp.raise_for_status()
         raw_bytes = resp.content
         src_content_type = resp.headers.get("Content-Type", "application/octet-stream")
