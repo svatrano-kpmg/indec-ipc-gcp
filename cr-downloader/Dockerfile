@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # Copio los certificados
-COPY certificados/*.crt /usr/local/share//ca-certificates/
+COPY certificados/*.crt /usr/local/share/ca-certificates/
 
 # Los registro
 RUN update-ca-certificates
