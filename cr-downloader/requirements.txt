@@ -2,5 +2,5 @@ gcsfs==2024.6.0
 functions-framework==3.5.0
 google-cloud-storage==2.14.0
 requests==2.31.0
-certifi==2024.07.04
+certifi==2026.1.4
 google-cloud-pubsub==2.*
