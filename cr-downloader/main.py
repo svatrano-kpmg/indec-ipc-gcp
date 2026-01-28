@@ -117,7 +117,7 @@ def run_indec_downloader(request):
     try:
         logging.info("Iniciando descarga...")
         
-        resp = requests.get(url, timeout=60) 
+        resp = requests.get(url, verify=false, timeout=60) 
         resp.raise_for_status()
         raw_bytes = resp.content
         src_content_type = resp.headers.get("Content-Type", "application/octet-stream")
